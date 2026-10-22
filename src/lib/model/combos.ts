@@ -71,3 +71,80 @@ export function bestSingles(perMatch: ComboLeg[][]): (ComboLeg & { value: number
 
 /** Stabil nøkkel for en kombinasjon, til innsatsfordelingen. */
 export const comboKey = (c: Combo) => c.legs.map((l) => `${l.matchId}:${l.home}-${l.away}`).join("|")
+
+// --------------------------------------------------------------------------
+// Låsing til sjekklisten
+
+export type ComboKind = "pre" | "ht"
+
+/** Ett ben slik det lagres i sjekklisten. */
+export type LockedLeg = {
+  eventId: string
+  homeName: string
+  awayName: string
+  home: number
+  away: number
+}
+
+/** En kombinasjon som skal låses inn. `stake` er hele kroner og alltid > 0. */
+export type LockCombo = {
+  legs: LockedLeg[]
+  probability: number
+  odds: number
+  stake: number
+}
+
+export type LockCombosInput = { kind: ComboKind; combos: LockCombo[] }
+
+/** Identifiserer settet med kamper («401|402»), uavhengig av rekkefølge. */
+export const comboSetKey = (legs: Pick<LockedLeg, "eventId">[]) =>
+  legs.map((l) => l.eventId).sort().join("|")
+
+/** Identifiserer akkurat denne kombinasjonen av resultater. */
+export const comboSignature = (legs: Pick<LockedLeg, "eventId" | "home" | "away">[]) =>
+  [...legs]
+    .sort((a, b) => a.eventId.localeCompare(b.eventId))
+    .map((l) => `${l.eventId}:${l.home}-${l.away}`)
+    .join("|")
+
+/** Lagret kombinasjon (nettleserlagring på Pages og form på sjekklisten). */
+export type StoredCombo = LockCombo & {
+  id: string
+  kind: ComboKind
+  setKey: string
+  signature: string
+  placed: boolean
+  createdAt: number
+}
+
+/**
+ * Ny låsing av et sett kamper: allerede plasserte kombinasjoner røres ikke, resten av samme
+ * sett og spilletype erstattes. Samme regel som for enkeltbet. Rene funksjoner, så regelen
+ * kan testes uavhengig av lagringen.
+ */
+export function mergeLockedCombos(
+  existing: StoredCombo[],
+  input: LockCombosInput,
+  makeId: () => string,
+  now: number
+): StoredCombo[] {
+  const sets = new Set(input.combos.map((c) => comboSetKey(c.legs)))
+  const kept = existing.filter(
+    (e) => !(e.kind === input.kind && sets.has(e.setKey) && !e.placed)
+  )
+  const placedSignatures = new Set(
+    kept.filter((e) => e.kind === input.kind).map((e) => e.signature)
+  )
+  const fresh: StoredCombo[] = input.combos
+    .filter((c) => !placedSignatures.has(comboSignature(c.legs)))
+    .map((c) => ({
+      ...c,
+      id: makeId(),
+      kind: input.kind,
+      setKey: comboSetKey(c.legs),
+      signature: comboSignature(c.legs),
+      placed: false,
+      createdAt: now,
+    }))
+  return [...kept, ...fresh]
+}

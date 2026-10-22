@@ -1,8 +1,9 @@
 "use client"
 
 import { keepPreviousData, useQueries } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
-import { InfoIcon, TriangleAlertIcon } from "lucide-react"
+import { useMemo, useState, useTransition } from "react"
+import { InfoIcon, Loader2Icon, LockIcon, TriangleAlertIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { Amount } from "@/components/amount"
 import type { Payload } from "@/components/match/live-match"
@@ -29,6 +30,7 @@ import {
   type Combo,
   type ComboLeg,
   type ComboSort,
+  type LockCombosInput,
 } from "@/lib/model/combos"
 import { analysePreMatch } from "@/lib/model/prematch"
 import { kellyPlan, stakePlan } from "@/lib/model/stakes"
@@ -64,11 +66,15 @@ export function ComboBuilder({
   matches,
   fetchPayload,
   renderMatchLink,
+  onLock,
 }: {
   matches: ComboCandidate[]
   fetchPayload: (id: string, opts: { h: number; a: number; remove: number; manual: boolean }) => Promise<Payload>
   renderMatchLink: (id: string, children: React.ReactNode) => React.ReactNode
+  /** Lagrer kombinasjonene i sjekklisten (databasen lokalt, nettleserlagring på Pages). */
+  onLock: (input: LockCombosInput) => Promise<{ ok: true } | { ok: false; error: string }>
 }) {
+  const [locking, startLock] = useTransition()
   const [selected, setSelected] = useState<string[]>(() => matches.slice(0, MAX_LEGS).map((m) => m.id))
   const [kind, setKind] = useState<Kind>("pre")
   const [sortBy, setSortBy] = useState<ComboSort>("value")
@@ -145,6 +151,31 @@ export function ComboBuilder({
 
   function toggle(id: string) {
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= MAX_LEGS ? cur : [...cur, id]))
+  }
+
+  function lock() {
+    startLock(async () => {
+      const res = await onLock({
+        kind,
+        combos: stakedCombos.map((c) => ({
+          legs: c.legs.map((l) => {
+            const cand = matches.find((m) => m.id === l.matchId)
+            return {
+              eventId: l.matchId,
+              homeName: cand?.homeName ?? "",
+              awayName: cand?.awayName ?? "",
+              home: l.home,
+              away: l.away,
+            }
+          }),
+          probability: c.probability,
+          odds: c.odds,
+          stake: rowFor(c)!.stake,
+        })),
+      })
+      if (!res.ok) toast.error(res.error)
+      else toast.success("Kombinasjonene er låst — se sjekklisten.")
+    })
   }
 
   function copy() {
@@ -485,11 +516,19 @@ export function ComboBuilder({
               </div>
             )}
 
-            <div>
-              <Button type="button" variant="outline" size="sm" onClick={copy} disabled={stakedCombos.length === 0}>
-                Kopier kombinasjonene
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={lock} disabled={stakedCombos.length === 0 || locking}>
+                {locking ? <Loader2Icon className="animate-spin" /> : <LockIcon />}
+                Lås kombinasjonene → sjekkliste
+              </Button>
+              <Button type="button" variant="outline" onClick={copy} disabled={stakedCombos.length === 0}>
+                Kopier
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Låser de {stakedCombos.length} kombinasjonene med innsats. Plasserte kombinasjoner røres ikke ved ny
+              låsing; resten av samme kamper erstattes.
+            </p>
           </CardContent>
         </Card>
       )}

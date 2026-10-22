@@ -5,6 +5,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router"
 import { ModeToggle } from "@/components/mode-toggle"
 import { cn } from "@/lib/utils"
 
+import { useCombos } from "./lib/combo-store"
 import { useTracked } from "./lib/store"
 
 const base = import.meta.env.BASE_URL
@@ -20,7 +21,11 @@ function Logo() {
 
 export function Layout() {
   const tracked = useTracked()
-  const open = tracked.flatMap((m) => m.bets).filter((b) => !b.placed).length
+  const combos = useCombos()
+  const activeIds = new Set(tracked.map((m) => m.eventId))
+  const open =
+    tracked.flatMap((m) => m.bets).filter((b) => !b.placed).length +
+    combos.filter((c) => !c.placed && c.legs.every((l) => activeIds.has(l.eventId))).length
   const { pathname } = useLocation()
 
   useEffect(() => {

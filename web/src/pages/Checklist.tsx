@@ -8,15 +8,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatKickoff, formatKr, formatNumber, formatProb } from "@/lib/format"
 
+import { ComboBetsTable } from "@/components/combo-bets-table"
+
+import { setComboPlaced, useCombos } from "../lib/combo-store"
 import { setPlaced, useTracked } from "../lib/store"
 
 const ODDSEN_URL = "https://www.norsk-tipping.no/sport/oddsen"
 
 export function Checklist() {
   const tracked = useTracked()
+  const allCombos = useCombos()
+  // Kombinasjoner vises så lenge alle kampene i dem fortsatt er aktive.
+  const activeIds = new Set(tracked.map((t) => t.eventId))
+  const combos = allCombos.filter((c) => c.legs.every((l) => activeIds.has(l.eventId)))
   const allBets = tracked.flatMap((t) => t.bets)
   const open = allBets.filter((b) => !b.placed)
-  const openStake = open.reduce((s, b) => s + (b.stake ?? 0), 0)
+  const openCombos = combos.filter((c) => !c.placed)
+  const openStake =
+    open.reduce((s, b) => s + (b.stake ?? 0), 0) + openCombos.reduce((s, c) => s + c.stake, 0)
 
   return (
     <div className="flex flex-col gap-6">
@@ -34,10 +43,10 @@ export function Checklist() {
         </Button>
       </div>
 
-      {allBets.length > 0 && (
+      {(allBets.length > 0 || combos.length > 0) && (
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary" className="tabular">
-            {open.length} av {allBets.length} gjenstår
+            {open.length + openCombos.length} av {allBets.length + combos.length} gjenstår
           </Badge>
           <Badge variant="secondary" className="tabular">
             {formatKr(openStake)} å plassere
@@ -45,7 +54,7 @@ export function Checklist() {
         </div>
       )}
 
-      {tracked.length === 0 && (
+      {tracked.length === 0 && combos.length === 0 && (
         <Alert>
           <AlertDescription>
             Ingen aktive kamper.{" "}
@@ -150,6 +159,37 @@ export function Checklist() {
           </Card>
         )
       })}
+
+      {combos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Kombinasjoner</CardTitle>
+            <CardDescription>
+              Dobbel og trippel på riktig resultat: alle kampene må treffe. Legges inn som kombinasjonsspill i
+              Oddsen.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ComboBetsTable
+              combos={combos}
+              renderCheck={(c) => (
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="size-5 accent-[var(--bull)]"
+                    checked={c.placed}
+                    onChange={(e) => setComboPlaced(c.id, e.target.checked)}
+                    aria-label={`Plassert: ${c.legs.map((l) => `${l.home}–${l.away}`).join(" + ")}`}
+                  />
+                  <span className={c.placed ? "text-xs text-bull" : "text-xs text-muted-foreground"}>
+                    {c.placed ? "Plassert" : "Ikke plassert"}
+                  </span>
+                </label>
+              )}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

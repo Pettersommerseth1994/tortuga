@@ -3,6 +3,7 @@ import { Link } from "react-router"
 import { ComboBuilder } from "@/components/combo/combo-builder"
 
 import { fetchPayload } from "../lib/data"
+import { lockCombos } from "../lib/combo-store"
 import { useTracked } from "../lib/store"
 
 export function Combos() {
@@ -17,6 +18,7 @@ export function Combos() {
       }))}
       fetchPayload={fetchPayload}
       renderMatchLink={(id, children) => <Link to={`/kamp/${id}`}>{children}</Link>}
+      onLock={async (input) => lockCombos(input)}
     />
   )
 }

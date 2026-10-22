@@ -17,12 +17,28 @@ export default async function AppLayout({
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const openBets = await db.bet.count({
-    where: {
-      placed: false,
-      trackedMatch: { userId: session.user.id, archivedAt: null },
-    },
-  })
+  const [openSingles, activeMatches, openComboRows] = await Promise.all([
+    db.bet.count({
+      where: {
+        placed: false,
+        trackedMatch: { userId: session.user.id, archivedAt: null },
+      },
+    }),
+    db.trackedMatch.findMany({
+      where: { userId: session.user.id, archivedAt: null },
+      select: { eventId: true },
+    }),
+    db.comboBet.findMany({
+      where: { userId: session.user.id, placed: false },
+      select: { legs: true },
+    }),
+  ])
+  // Kombinasjoner teller bare så lenge alle kampene i dem er aktive (som i sjekklisten).
+  const activeIds = new Set(activeMatches.map((m) => m.eventId))
+  const openCombos = openComboRows.filter((c) =>
+    (c.legs as unknown as { eventId: string }[]).every((l) => activeIds.has(l.eventId))
+  ).length
+  const openBets = openSingles + openCombos
 
   return (
     <SidebarProvider>

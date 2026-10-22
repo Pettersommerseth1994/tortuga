@@ -7,8 +7,11 @@ import { db } from "@/lib/db"
 import { listMatches } from "@/lib/football/espn"
 import type { MatchSummary } from "@/lib/football/types"
 import { formatKickoff, formatKr, formatNumber, formatProb } from "@/lib/format"
+import type { LockedLeg } from "@/lib/model/combos"
 import { AutoRefresh } from "@/components/auto-refresh"
 import { BetCheck } from "@/components/bet-check"
+import { ComboBetsTable, type ComboRow } from "@/components/combo-bets-table"
+import { ComboCheck } from "@/components/combo-check"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,19 +33,36 @@ const ODDSEN_URL = "https://www.norsk-tipping.no/sport/oddsen"
 export default async function ChecklistPage() {
   const userId = await requireUserId()
 
-  const [tracked, matches] = await Promise.all([
+  const [tracked, matches, comboRows] = await Promise.all([
     db.trackedMatch.findMany({
       where: { userId, archivedAt: null },
       orderBy: { kickoff: "asc" },
       include: { bets: { orderBy: [{ probability: "desc" }] } },
     }),
     listMatches().catch(() => [] as MatchSummary[]),
+    db.comboBet.findMany({ where: { userId }, orderBy: [{ createdAt: "asc" }, { odds: "asc" }] }),
   ])
   const byId = new Map(matches.map((m) => [m.id, m]))
 
+  // Kombinasjoner vises så lenge alle kampene i dem fortsatt er aktive.
+  const activeIds = new Set(tracked.map((t) => t.eventId))
+  const combos: ComboRow[] = comboRows
+    .map((c) => ({
+      id: c.id,
+      kind: (c.kind === "pre" ? "pre" : "ht") as ComboRow["kind"],
+      legs: c.legs as unknown as LockedLeg[],
+      odds: c.odds,
+      probability: c.probability,
+      stake: c.stake,
+      placed: c.placed,
+    }))
+    .filter((c) => c.legs.every((l) => activeIds.has(l.eventId)))
+
   const allBets = tracked.flatMap((t) => t.bets)
   const open = allBets.filter((b) => !b.placed)
-  const openStake = open.reduce((s, b) => s + (b.stake ?? 0), 0)
+  const openCombos = combos.filter((c) => !c.placed)
+  const openStake =
+    open.reduce((s, b) => s + (b.stake ?? 0), 0) + openCombos.reduce((s, c) => s + (c.stake ?? 0), 0)
 
   return (
     <div className="flex flex-col gap-6">
@@ -62,10 +82,10 @@ export default async function ChecklistPage() {
         </Button>
       </div>
 
-      {allBets.length > 0 && (
+      {(allBets.length > 0 || combos.length > 0) && (
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary" className="tabular">
-            {open.length} av {allBets.length} gjenstår
+            {open.length + openCombos.length} av {allBets.length + combos.length} gjenstår
           </Badge>
           <Badge variant="secondary" className="tabular">
             {formatKr(openStake)} å plassere
@@ -73,7 +93,7 @@ export default async function ChecklistPage() {
         </div>
       )}
 
-      {tracked.length === 0 && (
+      {tracked.length === 0 && combos.length === 0 && (
         <Alert>
           <AlertDescription>
             Ingen aktive kamper.{" "}
@@ -183,6 +203,30 @@ export default async function ChecklistPage() {
           </Card>
         )
       })}
+
+      {combos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Kombinasjoner</CardTitle>
+            <CardDescription>
+              Dobbel og trippel på riktig resultat: alle kampene må treffe. Legges inn som kombinasjonsspill i
+              Oddsen.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ComboBetsTable
+              combos={combos}
+              renderCheck={(c) => (
+                <ComboCheck
+                  comboId={c.id}
+                  placed={c.placed}
+                  label={`Plassert: ${c.legs.map((l) => `${l.home}–${l.away}`).join(" + ")}`}
+                />
+              )}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

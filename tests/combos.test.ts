@@ -92,3 +92,44 @@ test("kelly over combinations stakes only combinations with value above 1", () =
   assert.equal(plan.noValue, false)
   assert.ok(plan.totalStake > 0 && plan.totalStake < 1000)
 })
+
+import { comboSetKey, comboSignature, mergeLockedCombos, type LockCombo } from "../src/lib/model/combos"
+
+const lg = (eventId: string, home: number, away: number) => ({ eventId, homeName: "H" + eventId, awayName: "A" + eventId, home, away })
+const lc = (legs: ReturnType<typeof lg>[], stake = 50): LockCombo => ({ legs, probability: 0.01, odds: 100, stake })
+
+test("set key and signature ignore leg order", () => {
+  assert.equal(comboSetKey([lg("402", 0, 0), lg("401", 1, 1)]), "401|402")
+  assert.equal(comboSignature([lg("402", 2, 1), lg("401", 1, 0)]), "401:1-0|402:2-1")
+})
+
+test("locking replaces unplaced combos of the same set and kind, and keeps placed ones", () => {
+  let n = 0
+  const id = () => `id${++n}`
+  const first = mergeLockedCombos([], { kind: "pre", combos: [lc([lg("401", 1, 0), lg("402", 2, 1)]), lc([lg("401", 0, 1), lg("402", 0, 0)])] }, id, 1)
+  assert.equal(first.length, 2)
+  // Brukeren plasserer den første:
+  const placed = first.map((c, i) => (i === 0 ? { ...c, placed: true } : c))
+  // Ny låsing med en annen kombinasjon, og den allerede plasserte på nytt:
+  const second = mergeLockedCombos(
+    placed,
+    { kind: "pre", combos: [lc([lg("401", 1, 0), lg("402", 2, 1)]), lc([lg("401", 2, 2), lg("402", 1, 1)])] },
+    id,
+    2
+  )
+  const sigs = second.map((c) => c.signature).sort()
+  assert.deepEqual(sigs, ["401:1-0|402:2-1", "401:2-2|402:1-1"])
+  assert.equal(second.find((c) => c.signature === "401:1-0|402:2-1")!.placed, true) // urørt
+  assert.equal(second.filter((c) => c.signature === "401:1-0|402:2-1").length, 1) // ikke duplisert
+})
+
+test("other sets and the other bet kind are untouched by a lock", () => {
+  let n = 0
+  const id = () => `id${++n}`
+  const other = mergeLockedCombos([], { kind: "pre", combos: [lc([lg("401", 1, 0), lg("403", 1, 0)])] }, id, 1)
+  const ht = mergeLockedCombos(other, { kind: "ht", combos: [lc([lg("401", 1, 0), lg("402", 1, 0)])] }, id, 2)
+  const again = mergeLockedCombos(ht, { kind: "pre", combos: [lc([lg("401", 0, 0), lg("402", 0, 0)])] }, id, 3)
+  assert.equal(again.length, 3)
+  assert.ok(again.some((c) => c.setKey === "401|403"))
+  assert.ok(again.some((c) => c.kind === "ht"))
+})

@@ -20,6 +20,7 @@ model User {
   createdAt    DateTime @default(now())
 
   matches TrackedMatch[]
+  combos  ComboBet[]
 }
 
 /// En kamp brukeren har tatt med i Tortuga. Maks tre aktive om gangen
@@ -67,4 +68,29 @@ model Bet {
   trackedMatch TrackedMatch @relation(fields: [trackedMatchId], references: [id], onDelete: Cascade)
 
   @@unique([trackedMatchId, kind, homeGoals, awayGoals])
+}
+
+/// En kombinasjon (dobbel/trippel) i sjekklisten: ett sluttresultat per kamp, og alle må treffe.
+model ComboBet {
+  id     String @id @default(cuid())
+  userId String
+  /// "pre" = lagt før avspark, "ht" = lagt ved pause.
+  kind   String
+  /// [{ eventId, homeName, awayName, home, away }, …] — 2 eller 3 ben.
+  legs   Json
+  /// Kampene kombinasjonen gjelder (sorterte kamp-ID-er, «|»-skilt). Brukes til å erstatte ikke-plasserte ved ny låsing.
+  setKey String
+  /// Akkurat denne kombinasjonen av resultater, f.eks. «401:1-0|402:2-1».
+  signature   String
+  probability Float
+  odds        Float
+  stake       Int?
+  placed      Boolean   @default(false)
+  placedAt    DateTime?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, signature])
+  @@index([userId, setKey])
 }
