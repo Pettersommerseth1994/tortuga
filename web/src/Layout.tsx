@@ -1,4 +1,4 @@
-import { ClipboardCheckIcon, TrophyIcon } from "lucide-react"
+import { ClipboardCheckIcon, LayersIcon, TrophyIcon } from "lucide-react"
 import { useEffect } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router"
 
@@ -43,6 +43,9 @@ export function Layout() {
           <nav className="flex items-center gap-1">
             <NavLink to="/" end className={link}>
               <TrophyIcon className="size-4" /> Kamper
+            </NavLink>
+            <NavLink to="/kombi" className={link}>
+              <LayersIcon className="size-4" /> Kombinasjoner
             </NavLink>
             <NavLink to="/sjekkliste" className={link}>
               <ClipboardCheckIcon className="size-4" /> Sjekkliste

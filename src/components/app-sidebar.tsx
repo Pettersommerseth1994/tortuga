@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ClipboardCheckIcon, LogOutIcon, TrophyIcon } from "lucide-react"
+import { ClipboardCheckIcon, LayersIcon, LogOutIcon, TrophyIcon } from "lucide-react"
 
 import { logout } from "@/lib/actions/auth"
 import { Logo } from "@/components/logo"
@@ -33,6 +33,7 @@ import {
 
 const NAV = [
   { href: "/kamper", label: "Kamper", icon: TrophyIcon },
+  { href: "/kombi", label: "Kombinasjoner", icon: LayersIcon },
   { href: "/sjekkliste", label: "Sjekkliste", icon: ClipboardCheckIcon },
 ] as const
 

@@ -9,6 +9,7 @@ import type { Scenario } from "@/lib/model/analysis"
 import { clearDraft, loadDraft, saveDraft } from "@/lib/plan-draft"
 import { kellyPlan, stakePlan } from "@/lib/model/stakes"
 import { cn } from "@/lib/utils"
+import { Amount } from "@/components/amount"
 import { OddsImageImport } from "./odds-image-import"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -410,6 +411,15 @@ export function PlanPanel({
                 ? `verdi-fordelt (${kellyFraction === 1 ? "full" : kellyFraction === 0.5 ? "halv" : "kvart"} Kelly); resten av budsjettet beholdes.`
                 : "fordelt etter modellens sannsynlighet. Legg inn odds for å fordele etter utbetaling."}
           </p>
+          {plan.tooSmall && (
+            <Alert>
+              <AlertDescription>
+                Det finnes verdi (best er {bestValue.label} med modell × odds {formatNumber(bestValue.v)}), men
+                Kelly-innsatsen blir under 1 kr fordi sannsynligheten er lav. Øk budsjettet eller velg «Lik
+                utbetaling» hvis du vil spille.
+              </AlertDescription>
+            </Alert>
+          )}
           {plan.noValue && (
             <Alert>
               <AlertDescription>
@@ -494,22 +504,5 @@ export function PlanPanel({
         <p className="text-xs text-muted-foreground">{trackHint}</p>
       )}
     </div>
-  )
-}
-
-/** Beløp med fortegn og farge: gevinst mørkegrønn med +, tap rød med minus. */
-function Amount({ value }: { value: number }) {
-  const v = Math.round(value)
-  return (
-    <span
-      className={cn(
-        "tabular font-semibold",
-        v > 0 && "text-green-700 dark:text-green-400",
-        v < 0 && "text-bear"
-      )}
-    >
-      {v > 0 ? "+" : v < 0 ? "−" : ""}
-      {formatKr(Math.abs(v))}
-    </span>
   )
 }

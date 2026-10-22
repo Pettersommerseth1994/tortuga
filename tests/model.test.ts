@@ -170,6 +170,13 @@ test("kelly: no outcome with p·odds > 1 means no bet", () => {
   assert.ok(plan.rows.every((r) => r.stake === 0 && r.payout === null))
 })
 
+test("kelly: value on a long shot can round to 0 kr — flagged as too small, not as 'no value'", () => {
+  const plan = kellyPlan([{ key: "a", probability: 0.0002, odds: 5440 }], 500) // p·o = 1,088
+  assert.equal(plan.noValue, false)
+  assert.equal(plan.tooSmall, true)
+  assert.equal(plan.totalStake, 0)
+})
+
 test("kelly: a single value bet gets the textbook fraction (p·o − 1)/(o − 1)", () => {
   const p = 0.2, o = 8
   const plan = kellyPlan([{ key: "a", probability: p, odds: o }], 1000, 1)

@@ -27,6 +27,11 @@ export type StakePlan = {
   expectedNet: number | null
   /** Kelly fant ingen resultater med positiv forventet verdi: ingen innsats anbefales. */
   noValue?: boolean
+  /**
+   * Det finnes verdi, men Kelly-innsatsen rundes ned til 0 kr hver gang. Skjer for lange
+   * skudd: er sannsynligheten svært lav, er den optimale andelen av banken minimal.
+   */
+  tooSmall?: boolean
 }
 
 export function stakePlan(legs: StakeLeg[], budget: number): StakePlan {
@@ -115,6 +120,7 @@ export function kellyPlan(legs: StakeLeg[], budget: number, fraction = 0.5): Sta
     expectedNet: staked.length
       ? staked.reduce((a, x) => a + x.l.probability * (x.r.payout ?? 0), 0) - totalStake
       : null,
-    noValue: staked.length === 0,
+    noValue: chosen.length === 0,
+    tooSmall: chosen.length > 0 && staked.length === 0,
   }
 }
