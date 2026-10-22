@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ImageUpIcon, Loader2Icon } from "lucide-react"
 import { toast } from "sonner"
 
-import { formatNumber } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 
 type Summary = {
@@ -13,7 +12,6 @@ type Summary = {
   missing: string[]
   unresolved: number
   teams: "ok" | "swapped" | "unknown"
-  all: { key: string; odds: number }[]
 }
 
 /**
@@ -67,9 +65,6 @@ export function OddsImageImport({
           missing: rowKeys.filter((k) => !(k in map)),
           unresolved: res.unresolved,
           teams: res.teams,
-          all: Object.entries(map)
-            .map(([key, v]) => ({ key, odds: Number.parseFloat(v.replace(",", ".")) }))
-            .sort((a, b) => a.key.localeCompare(b.key)),
         })
 
         if (res.found.length === 0) {
@@ -165,18 +160,6 @@ export function OddsImageImport({
               Bildet har {away} først; resultatene er snudd til {home}–{away}.
             </p>
           )}
-          <details>
-            <summary className="cursor-pointer text-muted-foreground">
-              Kontroller alle leste odds ({summary.all.length})
-            </summary>
-            <ul className="tabular mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-              {summary.all.map((a) => (
-                <li key={a.key}>
-                  <span className="font-medium">{a.key.replace("-", "–")}</span> {formatNumber(a.odds)}
-                </li>
-              ))}
-            </ul>
-          </details>
         </div>
       )}
       <p className="text-[11px] text-muted-foreground">

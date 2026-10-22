@@ -1,11 +1,12 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { ClipboardCopyIcon, ExternalLinkIcon, Loader2Icon, LockIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { formatKr, formatNumber, formatProb, parseOdds } from "@/lib/format"
 import type { Scenario } from "@/lib/model/analysis"
+import { clearDraft, loadDraft, saveDraft } from "@/lib/plan-draft"
 import { kellyPlan, stakePlan } from "@/lib/model/stakes"
 import { cn } from "@/lib/utils"
 import { OddsImageImport } from "./odds-image-import"
@@ -70,6 +71,7 @@ const key = (s: { home: number; away: number }) => `${s.home}-${s.away}`
  * for hånd fra Oddsen — Tortuga har ikke tilgang til Norsk Tippings odds.
  */
 export function PlanPanel({
+  eventId,
   kind,
   kept,
   basisScore,
@@ -81,6 +83,8 @@ export function PlanPanel({
   away,
   locked,
 }: {
+  /** Kampens ID hos dataleverandøren; utkastet (odds m.m.) lagres per kamp og spilletype. */
+  eventId: string
   /** «pre» = sluttresultat før avspark, «ht» = ved pause. */
   kind: BetKind
   kept: Scenario[]
@@ -114,6 +118,35 @@ export function PlanPanel({
   // gjelder også resultater som tas med senere.
   const [scanned, setScanned] = useState<Record<string, string>>({})
   const oddsText = (s: Scenario) => odds[key(s)] ?? scanned[key(s)] ?? ""
+
+  // Utkastet lastes etter første visning (ikke under serverrendering) og lagres ved hver endring,
+  // så odds, budsjett og fordeling overlever faneskifte og omlasting.
+  const [loaded, setLoaded] = useState(false)
+  /* eslint-disable react-hooks/set-state-in-effect --
+     Synkroniserer med localStorage etter hydrering; det kan ikke gjøres under rendering
+     uten å gi ulik HTML på server og klient. */
+  useEffect(() => {
+    const d = loadDraft(eventId, kind)
+    if (d) {
+      setOdds((prev) => ({ ...prev, ...d.odds }))
+      setScanned(d.scanned)
+      setBudget(d.budget)
+      setStrategy(d.strategy)
+      setKellyFraction(d.kellyFraction)
+    }
+    setLoaded(true)
+  }, [eventId, kind])
+  /* eslint-enable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (loaded) saveDraft(eventId, kind, { odds, scanned, budget, strategy, kellyFraction })
+  }, [loaded, eventId, kind, odds, scanned, budget, strategy, kellyFraction])
+
+  const storedOdds = useMemo(() => {
+    const all = { ...scanned, ...odds }
+    return Object.entries(all)
+      .filter(([, v]) => parseOdds(v) !== null)
+      .sort(([a], [b]) => a.localeCompare(b))
+  }, [odds, scanned])
 
   const sorted = useMemo(
     () => [...kept].sort((a, b) => b.probability - a.probability),
@@ -283,6 +316,39 @@ export function PlanPanel({
           })
         }}
       />
+
+      {storedOdds.length > 0 && (
+        <div className="grid gap-1.5 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              Odds for {storedOdds.length} resultater lagres automatisk for denne kampen i denne
+              nettleseren.
+            </span>
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                setOdds({})
+                setScanned({})
+                clearDraft(eventId, kind)
+              }}
+            >
+              Tøm odds
+            </Button>
+          </div>
+          <details>
+            <summary className="cursor-pointer">Vis lagrede odds</summary>
+            <ul className="tabular mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+              {storedOdds.map(([k, v]) => (
+                <li key={k}>
+                  <span className="font-medium text-foreground">{k.replace("-", "–")}</span> {v}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      )}
 
       <Table>
         <TableHeader>

@@ -32,6 +32,7 @@ export function MatchPage() {
           <PlanPanel
             // Egen instans per plan, så odds og budsjett ikke blandes mellom dem.
             key={kind}
+            eventId={id}
             kind={kind}
             kept={kept}
             basisScore={basis}

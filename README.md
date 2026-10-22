@@ -25,6 +25,8 @@ Hver kamp har to faner, og planene er uavhengige av hverandre:
 
 **Odds fra bilde.** I betting-planen kan du laste opp (eller lime inn med Cmd/Ctrl+V) skjermbilder av «riktig resultat» fra Oddsen, og oddsfeltene fylles automatisk. Du kan laste opp flere bilder hvis listen er lang. Bildet leses i nettleseren med OCR ([tesseract.js](https://github.com/naptha/tesseract.js)) og sendes ikke noe sted; selve tekstgjenkjenningen (motor og språkdata, ikke bildet) lastes ned fra en CDN første gang, så det trenger nett. Resultat og odds parres etter plassering i bildet, ikke tekstrekkefølge, så de tre kolonnene ikke blandes. Resultater OCR leser feil («1-1» → «iil») leses på nytt rute for rute. Tortuga sjekker at lagnavnene står i bildet og snur resultatene hvis lagene står i motsatt rekkefølge. Funn vises under knappen, med liste over alt som ble lest, så du kan kontrollere. OCR kan ta feil, så sjekk tallene før du spiller.
 
+**Odds huskes.** Odds (innskrevne og lest fra bilde), budsjett og valgt fordeling lagres automatisk per kamp og per spilletype, så de overlever faneskifte, omlasting og at du kommer tilbake senere. «Tøm odds» sletter dem. Utkastet ligger i nettleseren (`localStorage`, se [`plan-draft.ts`](src/lib/plan-draft.ts)) og følger ikke med til andre enheter; det er først når du låser planen at bettene (med odds) havner i sjekklisten og databasen.
+
 **Fordeling av innsatsen.** Du velger mellom to måter å fordele budsjettet på:
 
 - **Lik utbetaling** (standard): innsats ∝ 1/odds, slik at alle treff gir omtrent samme utbetaling. Jevnest mulig, men tar ikke hensyn til hvilke odds som er gode.
