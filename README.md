@@ -23,6 +23,8 @@ Hver kamp har to faner, og planene er uavhengige av hverandre:
 - **Før kamp.** Sannsynlighet for hvert sluttresultat fra 0–0 til 4–4 (25 ruter). Modellen foreslår de 5, 7, 9 eller 12 mest sannsynlige, og du kan slå enkeltruter av og på selv, for eksempel ta 0–0 ut hvis du mener den er for usannsynlig. Plasseres én gang før avspark; du trenger ikke følge kampen. Forhåndsvurderingen bruker turneringens målsnitt (CL 3,42, EL 2,83, ECL 2,68 mål per kamp).
 - **Ved pause.** Ni scenarioer fra pausestillingen, de fem mest sannsynlige beholdes. Dette spillet må følges: du kan skrive inn stillingen selv («Skriv inn stillingen selv») hvis live-feeden henger eller er feil.
 
+**Odds fra bilde.** I betting-planen kan du laste opp (eller lime inn med Cmd/Ctrl+V) skjermbilder av «riktig resultat» fra Oddsen, og oddsfeltene fylles automatisk. Du kan laste opp flere bilder hvis listen er lang. Bildet leses i nettleseren med OCR ([tesseract.js](https://github.com/naptha/tesseract.js)) og sendes ikke noe sted; selve tekstgjenkjenningen (motor og språkdata, ikke bildet) lastes ned fra en CDN første gang, så det trenger nett. Resultat og odds parres etter plassering i bildet, ikke tekstrekkefølge, så de tre kolonnene ikke blandes. Resultater OCR leser feil («1-1» → «iil») leses på nytt rute for rute. Tortuga sjekker at lagnavnene står i bildet og snur resultatene hvis lagene står i motsatt rekkefølge. Funn vises under knappen, med liste over alt som ble lest, så du kan kontrollere. OCR kan ta feil, så sjekk tallene før du spiller.
+
 Sjekklisten viser de to typene hver for seg, og advarer hvis avspark er gått uten at alle førkampsbettene er plassert.
 
 ## Kom i gang (lokalt på Mac-en)

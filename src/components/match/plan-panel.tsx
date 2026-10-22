@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { formatKr, formatNumber, formatProb, parseOdds } from "@/lib/format"
 import type { Scenario } from "@/lib/model/analysis"
 import { stakePlan } from "@/lib/model/stakes"
+import { OddsImageImport } from "./odds-image-import"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -105,6 +106,11 @@ export function PlanPanel({
     )
   )
 
+  // Odds lest fra bilde. Egne innskrivinger (`odds`) går foran, og lest odds
+  // gjelder også resultater som tas med senere.
+  const [scanned, setScanned] = useState<Record<string, string>>({})
+  const oddsText = (s: Scenario) => odds[key(s)] ?? scanned[key(s)] ?? ""
+
   const sorted = useMemo(
     () => [...kept].sort((a, b) => b.probability - a.probability),
     [kept]
@@ -120,12 +126,12 @@ export function PlanPanel({
             sorted.map((s) => ({
               key: key(s),
               probability: s.probability,
-              odds: parseOdds(odds[key(s)] ?? ""),
+              odds: parseOdds(odds[key(s)] ?? scanned[key(s)] ?? ""),
             })),
             budgetNum
           )
         : null,
-    [sorted, odds, budgetNum, budgetOk]
+    [sorted, odds, scanned, budgetNum, budgetOk]
   )
 
   const rowFor = (s: Scenario) => plan?.rows.find((r) => r.key === key(s))
@@ -138,7 +144,7 @@ export function PlanPanel({
   function checklistText() {
     const lines = sorted.map((s) => {
       const r = rowFor(s)
-      const o = parseOdds(odds[key(s)] ?? "")
+      const o = parseOdds(oddsText(s))
       return `${home} ${s.home}–${s.away} ${away}${o ? ` @ ${formatNumber(o)}` : ""}${r ? ` — ${formatKr(r.stake)}` : ""}`
     })
     const head =
@@ -167,7 +173,7 @@ export function PlanPanel({
           homeGoals: s.home,
           awayGoals: s.away,
           probability: s.probability,
-          odds: parseOdds(odds[key(s)] ?? ""),
+          odds: parseOdds(oddsText(s)),
           stake: rowFor(s)?.stake ?? null,
         })),
       })
@@ -187,6 +193,21 @@ export function PlanPanel({
           onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))}
         />
       </div>
+
+      <OddsImageImport
+        home={home}
+        away={away}
+        rowKeys={sorted.map(key)}
+        onImport={(found) => {
+          setScanned((prev) => ({ ...prev, ...found }))
+          // Nylig lest odds skal gjelde, også over det som sto der fra før.
+          setOdds((prev) => {
+            const next = { ...prev }
+            for (const k of Object.keys(found)) delete next[k]
+            return next
+          })
+        }}
+      />
 
       <Table>
         <TableHeader>
@@ -219,7 +240,7 @@ export function PlanPanel({
                     inputMode="decimal"
                     placeholder="f.eks. 9,5"
                     className="h-8 tabular"
-                    value={odds[key(s)] ?? ""}
+                    value={oddsText(s)}
                     onChange={(e) =>
                       setOdds((o) => ({ ...o, [key(s)]: e.target.value.replace(/[^\d.,]/g, "") }))
                     }
