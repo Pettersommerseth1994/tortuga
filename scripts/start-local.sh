@@ -8,6 +8,10 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Auth.js nekter ukjente verter i produksjonsmodus (`next start`). Skriptet kjører
+# bare lokalt, så vi stoler på verten eksplisitt.
+export AUTH_TRUST_HOST=true
+
 if [ ! -f .env ]; then
   echo "Mangler .env. Kjør:  cp .env.example .env  og fyll inn AUTH_SECRET (openssl rand -base64 32)" >&2
   exit 1
