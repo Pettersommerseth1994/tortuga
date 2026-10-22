@@ -1,0 +1,66 @@
+// Tortuga — datamodell.
+//
+// PostgreSQL. Lokalt kjører `npm run db:start` en innebygd Postgres uten
+// Docker; i produksjon brukes en managed Postgres (Neon, Supabase, …).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  matches TrackedMatch[]
+}
+
+/// En kamp brukeren har tatt med i Tortuga. Maks tre aktive om gangen
+/// (håndheves i lib/actions/matches.ts).
+model TrackedMatch {
+  id         String    @id @default(cuid())
+  userId     String
+  /// Kamp-ID hos dataleverandøren (ESPN).
+  eventId    String
+  homeName   String
+  awayName   String
+  kickoff    DateTime
+  createdAt  DateTime  @default(now())
+  /// Settes når kampen er ferdig og plassen frigjøres.
+  archivedAt DateTime?
+
+  /// Når planen ble låst inn, og stillingen den ble laget på ("2-1").
+  lockedAt    DateTime?
+  lockedScore String?
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bets Bet[]
+
+  @@unique([userId, eventId])
+  @@index([userId, archivedAt])
+}
+
+/// Ett bet i sjekklisten: riktig sluttresultat, f.eks. 3–1.
+model Bet {
+  id             String    @id @default(cuid())
+  trackedMatchId String
+  homeGoals      Int
+  awayGoals      Int
+  /// Modellens sannsynlighet da planen ble låst (0–1).
+  probability    Float
+  odds           Float?
+  stake          Float?
+  placed         Boolean   @default(false)
+  placedAt       DateTime?
+
+  trackedMatch TrackedMatch @relation(fields: [trackedMatchId], references: [id], onDelete: Cascade)
+
+  @@unique([trackedMatchId, homeGoals, awayGoals])
+}
