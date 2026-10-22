@@ -142,3 +142,87 @@ test("pre-match: the stronger home side makes 1-0 likelier than 0-1, and 0-0 sta
   assert.ok(p(1, 0).probability > p(0, 1).probability)
   assert.equal(p(0, 0).keep, false)
 })
+
+import { kellyPlan } from "../src/lib/model/stakes"
+
+/** Forventet log-vekst for en fordeling (andeler av banken) mot gjensidig utelukkende utfall. */
+function growth(legs: { p: number; o: number }[], f: number[]) {
+  const spent = f.reduce((a, b) => a + b, 0)
+  let g = 0
+  let covered = 0
+  legs.forEach((l, i) => {
+    g += l.p * Math.log(1 - spent + f[i] * l.o)
+    covered += l.p
+  })
+  return g + (1 - covered) * Math.log(1 - spent) // ingen av dem treffer: bare reserven er igjen
+}
+
+test("kelly: no outcome with p·odds > 1 means no bet", () => {
+  const plan = kellyPlan(
+    [
+      { key: "a", probability: 0.12, odds: 8 }, // 0,96
+      { key: "b", probability: 0.11, odds: 7.65 }, // 0,84
+    ],
+    500
+  )
+  assert.equal(plan.noValue, true)
+  assert.equal(plan.totalStake, 0)
+  assert.ok(plan.rows.every((r) => r.stake === 0 && r.payout === null))
+})
+
+test("kelly: a single value bet gets the textbook fraction (p·o − 1)/(o − 1)", () => {
+  const p = 0.2, o = 8
+  const plan = kellyPlan([{ key: "a", probability: p, odds: o }], 1000, 1)
+  assert.equal(plan.rows[0].stake, Math.round(1000 * ((p * o - 1) / (o - 1))))
+})
+
+test("kelly: only value outcomes are staked, and stakes grow with the edge", () => {
+  const plan = kellyPlan(
+    [
+      { key: "good", probability: 0.2, odds: 8 }, // 1,6
+      { key: "ok", probability: 0.1, odds: 12 }, // 1,2
+      { key: "bad", probability: 0.15, odds: 5 }, // 0,75
+    ],
+    1000,
+    1
+  )
+  const s = Object.fromEntries(plan.rows.map((r) => [r.key, r.stake]))
+  assert.equal(s.bad, 0)
+  assert.ok(s.good > 0 && s.ok > 0)
+  assert.ok(s.good > s.ok)
+  assert.ok(plan.totalStake < 1000, "banken er aldri brukt opp")
+})
+
+test("kelly maximises expected log growth: no perturbation beats it, and it beats equal-return", () => {
+  const legs = [
+    { p: 0.2, o: 8 },
+    { p: 0.12, o: 11 },
+    { p: 0.09, o: 14 },
+    { p: 0.15, o: 5.5 },
+  ]
+  const plan = kellyPlan(legs.map((l, i) => ({ key: String(i), probability: l.p, odds: l.o })), 1_000_000, 1)
+  const f = plan.rows.map((r) => r.stake / 1_000_000)
+  const best = growth(legs, f)
+  assert.ok(best > 0)
+  for (let i = 0; i < f.length; i++) {
+    for (const d of [-0.01, 0.01]) {
+      const g = f.slice()
+      g[i] = Math.max(0, g[i] + d)
+      assert.ok(growth(legs, g) <= best + 1e-9, `perturbation ${i}${d} beat Kelly`)
+    }
+  }
+  const sumInv = legs.reduce((a, l) => a + 1 / l.o, 0)
+  const equal = legs.map((l) => 0.05 * (1 / l.o) / sumInv) // like utbetaling, samme størrelsesorden
+  assert.ok(best > growth(legs, equal))
+})
+
+test("kelly: fractional Kelly scales stakes down and ignores legs without odds", () => {
+  const legs = [
+    { key: "a", probability: 0.2, odds: 8 },
+    { key: "b", probability: 0.3, odds: null },
+  ]
+  const full = kellyPlan(legs, 1000, 1)
+  const half = kellyPlan(legs, 1000, 0.5)
+  assert.ok(Math.abs(half.rows[0].stake - full.rows[0].stake / 2) <= 1)
+  assert.equal(full.rows[1].stake, 0)
+})

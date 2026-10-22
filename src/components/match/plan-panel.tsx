@@ -6,7 +6,7 @@ import { toast } from "sonner"
 
 import { formatKr, formatNumber, formatProb, parseOdds } from "@/lib/format"
 import type { Scenario } from "@/lib/model/analysis"
-import { stakePlan } from "@/lib/model/stakes"
+import { kellyPlan, stakePlan } from "@/lib/model/stakes"
 import { cn } from "@/lib/utils"
 import { OddsImageImport } from "./odds-image-import"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -99,6 +99,9 @@ export function PlanPanel({
 }) {
   const [pending, start] = useTransition()
   const [budget, setBudget] = useState("500")
+  // «equal»: lik utbetaling (jevnest). «kelly»: verdi — bare der modellen ser en fordel.
+  const [strategy, setStrategy] = useState<"equal" | "kelly">("equal")
+  const [kellyFraction, setKellyFraction] = useState(0.5)
   const [odds, setOdds] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       (tracked?.bets ?? [])
@@ -120,26 +123,36 @@ export function PlanPanel({
   const budgetNum = Number.parseInt(budget, 10)
   const budgetOk = Number.isFinite(budgetNum) && budgetNum > 0
 
-  const plan = useMemo(
-    () =>
-      budgetOk
-        ? stakePlan(
-            sorted.map((s) => ({
-              key: key(s),
-              probability: s.probability,
-              odds: parseOdds(odds[key(s)] ?? scanned[key(s)] ?? ""),
-            })),
-            budgetNum
-          )
-        : null,
-    [sorted, odds, scanned, budgetNum, budgetOk]
-  )
+  const plan = useMemo(() => {
+    if (!budgetOk) return null
+    const legs = sorted.map((s) => ({
+      key: key(s),
+      probability: s.probability,
+      odds: parseOdds(odds[key(s)] ?? scanned[key(s)] ?? ""),
+    }))
+    return strategy === "kelly" ? kellyPlan(legs, budgetNum, kellyFraction) : stakePlan(legs, budgetNum)
+  }, [sorted, odds, scanned, budgetNum, budgetOk, strategy, kellyFraction])
 
   const rowFor = (s: Scenario) => plan?.rows.find((r) => r.key === key(s))
 
+  // Bare resultater det faktisk satses på (Kelly kan sette innsatsen til 0).
+  const staked = sorted.filter((s) => (rowFor(s)?.stake ?? 0) > 0)
+  // Beste «modellens sannsynlighet × odds»; over 1 betyr at oddsen er høyere enn modellen tilsier.
+  const bestValue = sorted.reduce(
+    (best, s) => {
+      const o = parseOdds(oddsText(s))
+      const v = o ? s.probability * o : 0
+      return v > best.v ? { v, label: `${s.home}–${s.away}` } : best
+    },
+    { v: 0, label: "" }
+  )
+
   // Hva ett treff gir (utbetaling minus total innsats), og modellens sjanse for at noe treffer.
-  const coverage = sorted.reduce((sum, s) => sum + s.probability, 0)
-  const payouts = (plan?.rows ?? []).flatMap((r) => (r.payout === null ? [] : [r.payout]))
+  const coverage = staked.reduce((sum, s) => sum + s.probability, 0)
+  const payouts = staked.flatMap((s) => {
+    const r = rowFor(s)
+    return r?.payout == null ? [] : [r.payout]
+  })
   const hitMin = payouts.length ? Math.min(...payouts) - (plan?.totalStake ?? 0) : 0
   const hitMax = payouts.length ? Math.max(...payouts) - (plan?.totalStake ?? 0) : 0
 
@@ -149,7 +162,7 @@ export function PlanPanel({
       : null
 
   function checklistText() {
-    const lines = sorted.map((s) => {
+    const lines = staked.map((s) => {
       const r = rowFor(s)
       const o = parseOdds(oddsText(s))
       return `${home} ${s.home}–${s.away} ${away}${o ? ` @ ${formatNumber(o)}` : ""}${r ? ` — ${formatKr(r.stake)}` : ""}`
@@ -176,7 +189,7 @@ export function PlanPanel({
       const res = await onLock({
         kind,
         score: key(basisScore),
-        legs: sorted.map((s) => ({
+        legs: staked.map((s) => ({
           homeGoals: s.home,
           awayGoals: s.away,
           probability: s.probability,
@@ -199,6 +212,61 @@ export function PlanPanel({
           value={budget}
           onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))}
         />
+      </div>
+
+      <div className="grid gap-2">
+        <Label>Fordeling av innsatsen</Label>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Fordeling av innsatsen">
+          {(
+            [
+              ["equal", "Lik utbetaling"],
+              ["kelly", "Verdi (Kelly)"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={strategy === v}
+              onClick={() => setStrategy(v)}
+              className={cn(
+                "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+                strategy === v ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {strategy === "kelly" ? (
+          <div className="grid gap-2 text-xs text-muted-foreground">
+            <p>
+              Satser bare på resultater der modellens sannsynlighet × odds er høy nok, og mest der
+              fordelen er størst. Budsjettet er taket; det som ikke trengs, beholdes. Krever odds.
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span>Andel av full Kelly:</span>
+              {([0.25, 0.5, 1] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setKellyFraction(f)}
+                  className={cn(
+                    "rounded-md border px-2 py-0.5 text-xs font-medium tabular transition-colors",
+                    kellyFraction === f ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                  )}
+                >
+                  {f === 1 ? "full" : f === 0.5 ? "½" : "¼"}
+                </button>
+              ))}
+              <span>(½ anbefales: modellen kan ta feil)</span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Alle treff gir omtrent lik utbetaling. Jevnest mulig, men tar ikke hensyn til hvilke odds som er gode.
+          </p>
+        )}
       </div>
 
       <OddsImageImport
@@ -253,7 +321,9 @@ export function PlanPanel({
                     }
                   />
                 </TableCell>
-                <TableCell className="tabular text-right">{r ? formatKr(r.stake) : "–"}</TableCell>
+                <TableCell className={cn("tabular text-right", r && r.stake === 0 && "text-muted-foreground")}>
+                  {r && r.stake > 0 ? formatKr(r.stake) : "–"}
+                </TableCell>
                 <TableCell className="tabular text-right">
                   {r?.payout != null ? formatKr(r.payout) : "–"}
                 </TableCell>
@@ -270,8 +340,26 @@ export function PlanPanel({
             {" · "}
             {plan.mode === "equal-return"
               ? "fordelt slik at alle treff gir omtrent lik utbetaling."
-              : "fordelt etter modellens sannsynlighet. Legg inn odds for å fordele etter utbetaling."}
+              : plan.mode === "kelly"
+                ? `verdi-fordelt (${kellyFraction === 1 ? "full" : kellyFraction === 0.5 ? "halv" : "kvart"} Kelly); resten av budsjettet beholdes.`
+                : "fordelt etter modellens sannsynlighet. Legg inn odds for å fordele etter utbetaling."}
           </p>
+          {plan.noValue && (
+            <Alert>
+              <AlertDescription>
+                {bestValue.v > 0 ? (
+                  <>
+                    Ingen av resultatene har positiv forventet verdi: modellens sannsynlighet × odds er
+                    under 1 for alle (best er {bestValue.label} med {formatNumber(bestValue.v)}).
+                    Kelly anbefaler derfor å ikke spille. Velg «Lik utbetaling» hvis du vil spille
+                    uansett, men da er det et spill uten fordel ifølge modellen.
+                  </>
+                ) : (
+                  <>Legg inn odds på resultatene (eller les dem fra bilde) for å beregne verdi-fordelingen.</>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
           {plan.overround !== null && plan.overround >= 1 && (
             <Alert variant="destructive">
               <AlertDescription>
@@ -320,7 +408,7 @@ export function PlanPanel({
 
       <div className="flex flex-wrap gap-2">
         {tracked ? (
-          <Button onClick={lock} disabled={pending || locked}>
+          <Button onClick={lock} disabled={pending || locked || staked.length === 0}>
             {pending ? <Loader2Icon className="animate-spin" /> : <LockIcon />}
             {tracked.lockedScore ? "Lås plan på nytt" : "Lås plan → sjekkliste"}
           </Button>
