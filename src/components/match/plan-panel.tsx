@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { formatKr, formatNumber, formatProb, parseOdds } from "@/lib/format"
 import type { Scenario } from "@/lib/model/analysis"
 import { stakePlan } from "@/lib/model/stakes"
+import { cn } from "@/lib/utils"
 import { OddsImageImport } from "./odds-image-import"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -135,6 +136,12 @@ export function PlanPanel({
   )
 
   const rowFor = (s: Scenario) => plan?.rows.find((r) => r.key === key(s))
+
+  // Hva ett treff gir (utbetaling minus total innsats), og modellens sjanse for at noe treffer.
+  const coverage = sorted.reduce((sum, s) => sum + s.probability, 0)
+  const payouts = (plan?.rows ?? []).flatMap((r) => (r.payout === null ? [] : [r.payout]))
+  const hitMin = payouts.length ? Math.min(...payouts) - (plan?.totalStake ?? 0) : 0
+  const hitMax = payouts.length ? Math.max(...payouts) - (plan?.totalStake ?? 0) : 0
 
   const lockedElsewhere =
     tracked?.lockedScore && tracked.lockedScore !== key(basisScore)
@@ -275,14 +282,29 @@ export function PlanPanel({
             </Alert>
           )}
           {plan.expectedNet !== null && plan.overround !== null && plan.overround < 1 && (
-            <p className="text-muted-foreground">
-              Hvis modellen har rett, er forventet resultat{" "}
-              <span className="tabular font-medium text-foreground">
-                {plan.expectedNet >= 0 ? "+" : "−"}
-                {formatKr(Math.abs(plan.expectedNet))}
-              </span>
-              . Modellen er en enkel Poisson-modell — bokmakerne har mer informasjon enn den.
-            </p>
+            <div className="grid gap-1.5 rounded-lg border p-3 text-foreground">
+              <p>
+                Forventet resultat, i snitt over mange kamper:{" "}
+                <Amount value={plan.expectedNet} />
+              </p>
+              <p>
+                Treffer ett av dem ({formatProb(coverage)} ifølge modellen):{" "}
+                <Amount value={hitMin} />
+                {hitMax - hitMin > 1 && (
+                  <>
+                    {" "}til <Amount value={hitMax} />
+                  </>
+                )}
+              </p>
+              <p>
+                Treffer ingen ({formatProb(1 - coverage)}): <Amount value={-plan.totalStake} />
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Et minustall er et tap. «Forventet» veier gevinsten ved treff mot tapet ved bom, med
+                modellens sannsynligheter. Modellen er en enkel Poisson-modell, og bokmakerne har mer
+                informasjon enn den.
+              </p>
+            </div>
           )}
         </div>
       )}
@@ -318,5 +340,22 @@ export function PlanPanel({
         <p className="text-xs text-muted-foreground">{trackHint}</p>
       )}
     </div>
+  )
+}
+
+/** Beløp med fortegn og farge: gevinst mørkegrønn med +, tap rød med minus. */
+function Amount({ value }: { value: number }) {
+  const v = Math.round(value)
+  return (
+    <span
+      className={cn(
+        "tabular font-semibold",
+        v > 0 && "text-green-700 dark:text-green-400",
+        v < 0 && "text-bear"
+      )}
+    >
+      {v > 0 ? "+" : v < 0 ? "−" : ""}
+      {formatKr(Math.abs(v))}
+    </span>
   )
 }
