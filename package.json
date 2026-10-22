@@ -15,7 +15,8 @@
     "db:start": "node scripts/dev-db.mjs",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:watch": "node --import tsx --test --watch tests/*.test.ts",
-    "user:create": "node scripts/create-user.mjs"
+    "user:create": "node scripts/create-user.mjs",
+    "tortuga": "sh scripts/start-local.sh"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

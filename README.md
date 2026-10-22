@@ -16,18 +16,33 @@ Stillingen er 2–1 til Liverpool mot Napoli i pausen. Hvert lag kan score 0, 1 
 
 Tortuga rangerer de ni etter sannsynlighet og markerer de fem beste som «behold». Du kan stryke 3, 4 eller 5 (standard 4 av 9). Maks tre aktive kamper om gangen.
 
-## Kom i gang
+## Kom i gang (lokalt på Mac-en)
 
-Krever Node 20+.
+Krever Node 20+. Appen kjører helt lokalt, uten Vercel eller Neon, og data ligger i `.postgres-data/`.
+
+Førstegangsoppsett:
 
 ```bash
 npm install
 cp .env.example .env            # fyll inn AUTH_SECRET:  openssl rand -base64 32
-npm run db:start                # egen terminal — Postgres uten Docker, kun for utvikling
-npm run db:push                 # oppretter tabellene
-npm run user:create -- deg@epost.no "Ditt Navn"   # spør om passord (minst 12 tegn)
-npm run dev
 ```
+
+Start databasen én gang i en egen terminal, lag tabellene og brukeren din, og avslutt den igjen med Ctrl-C:
+
+```bash
+npm run db:start                # terminal 1
+npm run db:push                 # terminal 2
+npm run user:create -- deg@epost.no "Ditt Navn"   # spør om passord (minst 12 tegn)
+```
+
+Deretter, hver gang du vil bruke Tortuga:
+
+```bash
+npm run tortuga                 # database + app på http://localhost:3000
+HOST=0.0.0.0 npm run tortuga    # også fra telefonen din på samme wifi
+```
+
+`npm run dev` er for utvikling (hot reload, krever at `npm run db:start` kjører).
 
 Det finnes ingen åpen registrering. `user:create` er eneste vei inn, og kan også brukes til å bytte passord.
 
@@ -71,7 +86,9 @@ I stedet er flyten gjort så rask som mulig: **Sjekklisten** viser nøyaktig hvi
 - Sett tapsgrense og spillepauser i Norsk Tipping selv. De gjelder uansett hva Tortuga foreslår.
 - Sjekk i Oddsen at «riktig resultat» finnes for kampen og at spillet er live-åpent. Ikke alle sluttresultater (f.eks. 4–3) tilbys alltid.
 
-## Drift i produksjon
+## Drift i produksjon (valgfritt)
+
+Ikke nødvendig for lokal bruk. Skal du senere ha appen tilgjengelig fra mobilnett, trenger den en server (ikke GitHub Pages, som bare kan hoste statiske filer):
 
 1. Postgres hos f.eks. Neon eller Supabase. Sett `DATABASE_URL`.
 2. Sett `AUTH_SECRET` (og `AUTH_URL` hvis du står bak proxy).
