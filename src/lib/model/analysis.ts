@@ -199,37 +199,61 @@ export function analyse(input: AnalysisInput): Analysis {
     }
   }
 
+  const base = analyseBase(raw, {
+    keepCount: Math.max(1, raw.length - Math.max(0, input.removeCount)),
+    factors,
+    remaining: { home: remH, away: remA },
+    labels: { home, away },
+    explain: (sc, keep) => explain(sc, keep, { home, away, remH, remA }),
+  })
+
+  base.factors.unshift({
+    tone: "neutral",
+    text: `Forventet ${fmt(remH)} mål til for ${home} og ${fmt(remA)} for ${away} (${pct(remainingShare)} av kampens mål gjenstår). ${prior.detail}`,
+  })
+
+  return { ...base, xg }
+}
+
+/**
+ * Felles for pause- og førkampsanalysen: rangér rutene, marker de beste som
+ * «behold», og summer sannsynlighetene. Rutenettet vises i fast rekkefølge
+ * (hjemmelagets mål nedover, bortelagets bortover).
+ */
+export function analyseBase(
+  raw: Omit<Scenario, "rank" | "keep" | "why">[],
+  opts: {
+    keepCount: number
+    factors: Factor[]
+    remaining: { home: number; away: number }
+    labels: { home: string; away: string }
+    explain?: (s: Omit<Scenario, "rank" | "keep" | "why">, keep: boolean) => string
+    scenarioLabel?: (s: Omit<Scenario, "rank" | "keep" | "why">) => string
+  }
+): Analysis {
   // Mest sannsynlig først; ved likt, færrest mål først (enklest å forklare).
   const ranked = [...raw].sort(
     (a, b) =>
       b.probability - a.probability ||
       a.addHome + a.addAway - (b.addHome + b.addAway)
   )
-  const keepCount = Math.max(1, raw.length - Math.max(0, input.removeCount))
 
-  const scenarios: Scenario[] = ranked.map((s, idx) => {
-    const keep = idx < keepCount
-    return { ...s, rank: idx + 1, keep, why: explain(s, keep, { home, away, remH, remA }) }
+  const scenarios: Scenario[] = ranked.map((sc, idx) => {
+    const keep = idx < opts.keepCount
+    const why =
+      opts.explain?.(sc, keep) ??
+      `${keep ? "Behold" : "Stryk"}: ${opts.scenarioLabel?.(sc) ?? `${sc.home}–${sc.away}`} — ${pct(sc.probability)}.`
+    return { ...sc, rank: idx + 1, keep, why }
   })
-
-  // Vis i fast rutenettrekkefølge (hjemme-mål ned, borte-mål bortover).
   scenarios.sort((a, b) => a.addHome - b.addHome || a.addAway - b.addAway)
-
-  const gridProbability = scenarios.reduce((s, x) => s + x.probability, 0)
-  const keptProbability = scenarios.filter((x) => x.keep).reduce((s, x) => s + x.probability, 0)
-
-  factors.unshift({
-    tone: "neutral",
-    text: `Forventet ${fmt(remH)} mål til for ${home} og ${fmt(remA)} for ${away} (${pct(remainingShare)} av kampens mål gjenstår). ${prior.detail}`,
-  })
 
   return {
     scenarios,
-    remaining: { home: remH, away: remA },
-    gridProbability,
-    keptProbability,
-    xg,
-    factors,
+    remaining: opts.remaining,
+    gridProbability: scenarios.reduce((sum, x) => sum + x.probability, 0),
+    keptProbability: scenarios.filter((x) => x.keep).reduce((sum, x) => sum + x.probability, 0),
+    xg: null,
+    factors: opts.factors,
   }
 }
 

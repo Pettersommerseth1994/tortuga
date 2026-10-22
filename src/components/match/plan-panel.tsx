@@ -20,7 +20,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+export type BetKind = "pre" | "ht"
+
 export type LockInput = {
+  kind: BetKind
   score: string
   legs: {
     homeGoals: number
@@ -39,6 +42,24 @@ export type TrackedState = {
   bets: { homeGoals: number; awayGoals: number; odds: number | null; stake: number | null; placed: boolean }[]
 } | null
 
+/** Alt vi vet om en tatt-med kamp: begge planene (før kamp og ved pause). */
+export type TrackedAll = {
+  id: string
+  lockedScore: string | null
+  preLocked: boolean
+  bets: (NonNullable<TrackedState>["bets"][number] & { kind: BetKind })[]
+} | null
+
+/** Utsnittet av `TrackedAll` som gjelder én av planene. */
+export function trackedForKind(t: TrackedAll, kind: BetKind): TrackedState {
+  if (!t) return null
+  return {
+    id: t.id,
+    lockedScore: kind === "pre" ? (t.preLocked ? "0-0" : null) : t.lockedScore,
+    bets: t.bets.filter((b) => b.kind === kind),
+  }
+}
+
 const ODDSEN_URL = "https://www.norsk-tipping.no/sport/oddsen"
 const key = (s: { home: number; away: number }) => `${s.home}-${s.away}`
 
@@ -47,6 +68,7 @@ const key = (s: { home: number; away: number }) => `${s.home}-${s.away}`
  * for hånd fra Oddsen — Tortuga har ikke tilgang til Norsk Tippings odds.
  */
 export function PlanPanel({
+  kind,
   kept,
   basisScore,
   tracked,
@@ -57,6 +79,8 @@ export function PlanPanel({
   away,
   locked,
 }: {
+  /** «pre» = sluttresultat før avspark, «ht» = ved pause. */
+  kind: BetKind
   kept: Scenario[]
   basisScore: { home: number; away: number }
   tracked: TrackedState
@@ -68,7 +92,7 @@ export function PlanPanel({
   onLock: (input: LockInput) => Promise<LockResult>
   home: string
   away: string
-  /** Kampen er ferdig — planen kan ikke lenger låses. */
+  /** Planen kan ikke lenger låses (kampen har startet eller er ferdig). */
   locked: boolean
 }) {
   const [pending, start] = useTransition()
@@ -117,7 +141,11 @@ export function PlanPanel({
       const o = parseOdds(odds[key(s)] ?? "")
       return `${home} ${s.home}–${s.away} ${away}${o ? ` @ ${formatNumber(o)}` : ""}${r ? ` — ${formatKr(r.stake)}` : ""}`
     })
-    return `Tortuga · riktig resultat (stilling ved plan: ${key(basisScore)})\n${lines.join("\n")}`
+    const head =
+      kind === "pre"
+        ? "Tortuga · riktig sluttresultat, før avspark"
+        : `Tortuga · riktig sluttresultat, ved pause (stilling ${key(basisScore)})`
+    return `${head}\n${lines.join("\n")}`
   }
 
   async function copy() {
@@ -133,6 +161,7 @@ export function PlanPanel({
     if (!tracked) return
     start(async () => {
       const res = await onLock({
+        kind,
         score: key(basisScore),
         legs: sorted.map((s) => ({
           homeGoals: s.home,

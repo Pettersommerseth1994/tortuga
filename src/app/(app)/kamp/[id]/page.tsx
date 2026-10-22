@@ -57,7 +57,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             ? {
                 id: active.id,
                 lockedScore: active.lockedScore,
+                preLocked: active.preLockedAt !== null,
                 bets: active.bets.map((b) => ({
+                  kind: b.kind === "pre" ? ("pre" as const) : ("ht" as const),
                   homeGoals: b.homeGoals,
                   awayGoals: b.awayGoals,
                   odds: b.odds,

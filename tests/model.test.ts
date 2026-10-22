@@ -124,3 +124,21 @@ test("stake plan without odds falls back to probability weights", () => {
   assert.equal(plan.rows[1].stake, 100)
   assert.equal(plan.rows[0].payout, null)
 })
+
+import { analysePreMatch, PRE_MAX } from "../src/lib/model/prematch"
+
+test("pre-match: 25 final scores that sum to nearly 1, top-K kept", () => {
+  const a = analysePreMatch({ home: "Liverpool", away: "Napoli", prior: base.prior, keepCount: 9 })
+  assert.equal(a.scenarios.length, (PRE_MAX + 1) ** 2)
+  assert.equal(a.scenarios.filter((s) => s.keep).length, 9)
+  assert.ok(a.gridProbability > 0.95 && a.gridProbability <= 1)
+  const s00 = a.scenarios.find((s) => s.home === 0 && s.away === 0)!
+  assert.ok(Math.abs(s00.probability - Math.exp(-(base.prior.home + base.prior.away))) < 1e-9)
+})
+
+test("pre-match: the stronger home side makes 1-0 likelier than 0-1, and 0-0 stays out of the top 5", () => {
+  const a = analysePreMatch({ home: "H", away: "A", prior: { ...base.prior, home: 1.9, away: 1.1 }, keepCount: 5 })
+  const p = (h: number, w: number) => a.scenarios.find((s) => s.home === h && s.away === w)!
+  assert.ok(p(1, 0).probability > p(0, 1).probability)
+  assert.equal(p(0, 0).keep, false)
+})

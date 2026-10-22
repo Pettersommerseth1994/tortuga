@@ -69,59 +69,82 @@ export function Checklist() {
               </CardTitle>
               <CardDescription>
                 {formatKickoff(t.kickoff)}
-                {t.lockedScore ? ` · plan låst på stillingen ${t.lockedScore}` : ""}
                 {stake > 0 ? ` · ${formatKr(stake)} totalt` : ""}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="grid gap-6">
               {t.bets.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Ingen plan ennå.{" "}
                   <Link to={`/kamp/${t.eventId}`} className="underline underline-offset-4">
                     Lag og lås en plan
                   </Link>{" "}
-                  — helst i pausen.
+                  — før avspark eller i pausen.
                 </p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bet: riktig resultat</TableHead>
-                      <TableHead className="text-right">Modell</TableHead>
-                      <TableHead className="text-right">Odds</TableHead>
-                      <TableHead className="text-right">Innsats</TableHead>
-                      <TableHead className="w-36">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {t.bets.map((b) => (
-                      <TableRow key={`${b.homeGoals}-${b.awayGoals}`}>
-                        <TableCell className="tabular font-semibold">
-                          {t.homeName} {b.homeGoals}–{b.awayGoals} {t.awayName}
-                        </TableCell>
-                        <TableCell className="tabular text-right">{formatProb(b.probability)}</TableCell>
-                        <TableCell className="tabular text-right">{b.odds ? formatNumber(b.odds) : "–"}</TableCell>
-                        <TableCell className="tabular text-right">
-                          {b.stake != null ? formatKr(b.stake) : "–"}
-                        </TableCell>
-                        <TableCell>
-                          <label className="flex cursor-pointer items-center gap-2">
-                            <input
-                              type="checkbox"
-                              className="size-5 accent-[var(--bull)]"
-                              checked={b.placed}
-                              onChange={(e) => setPlaced(t.eventId, b.homeGoals, b.awayGoals, e.target.checked)}
-                              aria-label={`Plassert: ${b.homeGoals}–${b.awayGoals}`}
-                            />
-                            <span className={b.placed ? "text-xs text-bull" : "text-xs text-muted-foreground"}>
-                              {b.placed ? "Plassert" : "Ikke plassert"}
-                            </span>
-                          </label>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                (["pre", "ht"] as const).map((kind) => {
+                  const bets = t.bets.filter((b) => b.kind === kind)
+                  if (bets.length === 0) return null
+                  const missed =
+                    kind === "pre" && new Date(t.kickoff).getTime() < Date.now() && bets.some((b) => !b.placed)
+                  return (
+                    <div key={kind} className="grid gap-2">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="text-sm font-medium">
+                          {kind === "pre"
+                            ? "Før kamp — plasseres én gang, før avspark"
+                            : `Ved pause — plan låst på ${t.lockedScore ?? "?"}`}
+                        </h3>
+                        {missed && (
+                          <span className="text-xs text-bear">
+                            Avspark er gått — de som ikke er plassert kan ikke lenger spilles før kamp.
+                          </span>
+                        )}
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Bet: riktig resultat</TableHead>
+                            <TableHead className="text-right">Modell</TableHead>
+                            <TableHead className="text-right">Odds</TableHead>
+                            <TableHead className="text-right">Innsats</TableHead>
+                            <TableHead className="w-36">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {bets.map((b) => (
+                            <TableRow key={`${b.kind}-${b.homeGoals}-${b.awayGoals}`}>
+                              <TableCell className="tabular font-semibold">
+                                {t.homeName} {b.homeGoals}–{b.awayGoals} {t.awayName}
+                              </TableCell>
+                              <TableCell className="tabular text-right">{formatProb(b.probability)}</TableCell>
+                              <TableCell className="tabular text-right">{b.odds ? formatNumber(b.odds) : "–"}</TableCell>
+                              <TableCell className="tabular text-right">
+                                {b.stake != null ? formatKr(b.stake) : "–"}
+                              </TableCell>
+                              <TableCell>
+                                <label className="flex cursor-pointer items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    className="size-5 accent-[var(--bull)]"
+                                    checked={b.placed}
+                                    onChange={(e) =>
+                                      setPlaced(t.eventId, b.kind, b.homeGoals, b.awayGoals, e.target.checked)
+                                    }
+                                    aria-label={`Plassert: ${b.homeGoals}–${b.awayGoals}`}
+                                  />
+                                  <span className={b.placed ? "text-xs text-bull" : "text-xs text-muted-foreground"}>
+                                    {b.placed ? "Plassert" : "Ikke plassert"}
+                                  </span>
+                                </label>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )
+                })
               )}
             </CardContent>
           </Card>

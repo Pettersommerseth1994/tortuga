@@ -16,6 +16,15 @@ Stillingen er 2–1 til Liverpool mot Napoli i pausen. Hvert lag kan score 0, 1 
 
 Tortuga rangerer de ni etter sannsynlighet og markerer de fem beste som «behold». Du kan stryke 3, 4 eller 5 (standard 4 av 9). Maks tre aktive kamper om gangen.
 
+## To typer spill
+
+Hver kamp har to faner, og planene er uavhengige av hverandre:
+
+- **Før kamp.** Sannsynlighet for hvert sluttresultat fra 0–0 til 4–4 (25 ruter). Modellen foreslår de 5, 7, 9 eller 12 mest sannsynlige, og du kan slå enkeltruter av og på selv, for eksempel ta 0–0 ut hvis du mener den er for usannsynlig. Plasseres én gang før avspark; du trenger ikke følge kampen. Forhåndsvurderingen bruker turneringens målsnitt (CL 3,42, EL 2,83, ECL 2,68 mål per kamp).
+- **Ved pause.** Ni scenarioer fra pausestillingen, de fem mest sannsynlige beholdes. Dette spillet må følges: du kan skrive inn stillingen selv («Skriv inn stillingen selv») hvis live-feeden henger eller er feil.
+
+Sjekklisten viser de to typene hver for seg, og advarer hvis avspark er gått uten at alle førkampsbettene er plassert.
+
 ## Kom i gang (lokalt på Mac-en)
 
 Krever Node 20+. Appen kjører helt lokalt, uten Vercel eller Neon, og data ligger i `.postgres-data/`.

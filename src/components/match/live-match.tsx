@@ -15,7 +15,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+import type { BetKind } from "./plan-panel"
+import { PreMatchSection } from "./prematch-section"
 import { ScenarioGrid } from "./scenario-grid"
 import { StatsCompare } from "./stats-compare"
 import { TeamBadge } from "./team-badge"
@@ -49,9 +52,13 @@ export function LiveMatch({
   id: string
   /** Ferdig hentet data til første visning (server). Utelates på Pages. */
   initial?: Payload
-  fetchPayload: (opts: { h: number; a: number; remove: number }) => Promise<Payload>
-  /** Betting-panelet; får de beholdte scenarioene og grunnlaget for dem. */
+  fetchPayload: (opts: { h: number; a: number; remove: number; manual: boolean }) => Promise<Payload>
+  /**
+   * Betting-panelet. «pre» = sluttresultat før avspark (basis 0–0), «ht» = ved
+   * pause (basis = stillingen). Får de valgte scenarioene.
+   */
   renderPlan: (args: {
+    kind: BetKind
     match: MatchDetail
     kept: Scenario[]
     basis: { home: number; away: number }
@@ -59,11 +66,14 @@ export function LiveMatch({
 }) {
   const [sim, setSim] = useState({ h: 0, a: 0 })
   const [removeCount, setRemoveCount] = useState(4)
+  // Skriv inn pausestillingen selv, også mens kampen pågår (feeden kan henge).
+  const [manual, setManual] = useState(false)
+  const [tab, setTab] = useState<string | null>(null)
 
-  const initialKey = sim.h === 0 && sim.a === 0 && removeCount === 4
+  const initialKey = sim.h === 0 && sim.a === 0 && removeCount === 4 && !manual
   const { data, isFetching, isError } = useQuery<Payload>({
-    queryKey: ["match", id, sim.h, sim.a, removeCount],
-    queryFn: () => fetchPayload({ h: sim.h, a: sim.a, remove: removeCount }),
+    queryKey: ["match", id, sim.h, sim.a, removeCount, manual],
+    queryFn: () => fetchPayload({ h: sim.h, a: sim.a, remove: removeCount, manual }),
     initialData: initialKey ? initial : undefined,
     placeholderData: keepPreviousData,
     refetchInterval: (q) => (q.state.data ? pollInterval(q.state.data.match) : false),
@@ -77,6 +87,8 @@ export function LiveMatch({
   const kept = analysis.scenarios.filter((s) => s.keep)
   const actual = view.mode === "replay" ? { home: match.homeScore, away: match.awayScore } : undefined
   const actualKept = actual && kept.some((s) => s.home === actual.home && s.away === actual.away)
+  const liveNow = match.status === "live" || match.status === "halftime"
+  const activeTab = tab ?? (match.status === "scheduled" ? "pre" : "ht")
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,13 +141,30 @@ export function LiveMatch({
         </CardContent>
       </Card>
 
-      <ModeBanner view={view} match={match} isFetching={isFetching} isError={isError} />
+      <Tabs value={activeTab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="pre">Før kamp</TabsTrigger>
+          <TabsTrigger value="ht">Ved pause</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pre" className="mt-4">
+          <PreMatchSection
+            match={match}
+            prior={view.prior}
+            renderPlan={({ kept: preKept }) =>
+              renderPlan({ kind: "pre", match, kept: preKept, basis: { home: 0, away: 0 } })
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="ht" className="mt-4 flex flex-col gap-6">
+          <ModeBanner view={view} match={match} isFetching={isFetching} isError={isError} />
 
       {/* ----------------------------------------------- Scenarioer + plan */}
       <div className="grid gap-6 xl:grid-cols-5">
         <Card className="xl:col-span-3">
           <CardHeader>
-            <CardTitle>Ni scenarioer</CardTitle>
+            <CardTitle>Ved pause: ni scenarioer</CardTitle>
             <CardDescription>
               Sluttresultat når hvert lag scorer 0, 1 eller 2 mål til fra{" "}
               <span className="tabular font-medium text-foreground">
@@ -145,10 +174,30 @@ export function LiveMatch({
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5">
-            {view.mode === "simulation" && (
+            {liveNow && (
+              <label className="flex w-fit cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4"
+                  checked={manual}
+                  onChange={(e) => {
+                    if (e.target.checked) setSim({ h: match.homeScore, a: match.awayScore })
+                    setManual(e.target.checked)
+                  }}
+                />
+                Skriv inn stillingen selv
+                <span className="text-xs text-muted-foreground">
+                  (live-stilling er {match.homeScore}–{match.awayScore})
+                </span>
+              </label>
+            )}
+
+            {(view.mode === "simulation" || manual) && (
               <div className="flex flex-wrap items-end gap-3">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="sim-h">Pausestilling (hva-om): {match.home.shortName}</Label>
+                  <Label htmlFor="sim-h">
+                    {manual ? "Stilling" : "Pausestilling (hva-om)"}: {match.home.shortName}
+                  </Label>
                   <Input
                     id="sim-h"
                     type="number"
@@ -230,13 +279,13 @@ export function LiveMatch({
 
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Betting-plan</CardTitle>
+            <CardTitle>Betting-plan ved pause</CardTitle>
             <CardDescription>
               Riktig resultat (sluttresultat) på de {kept.length} beholdte.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {renderPlan({ match, kept, basis: view.basis })}
+            {renderPlan({ kind: "ht", match, kept, basis: view.basis })}
           </CardContent>
         </Card>
       </div>
@@ -283,6 +332,8 @@ export function LiveMatch({
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* ------------------------------------------------ Statistikk og lag */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -388,6 +439,22 @@ function ModeBanner({
         <AlertCircleIcon />
         <AlertTitle>Mistet kontakten med dataleverandøren</AlertTitle>
         <AlertDescription>Viser siste kjente tall. Prøver igjen automatisk.</AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (view.manual) {
+    return (
+      <Alert>
+        <RadioIcon />
+        <AlertTitle className="flex items-center gap-2">
+          Stilling tastet inn for hånd
+          {isFetching && <span className="text-xs font-normal text-muted-foreground">oppdaterer …</span>}
+        </AlertTitle>
+        <AlertDescription>
+          Analysen bruker stillingen du skrev inn og live-statistikken. Skru av valget for å følge
+          live-stillingen igjen.
+        </AlertDescription>
       </Alert>
     )
   }

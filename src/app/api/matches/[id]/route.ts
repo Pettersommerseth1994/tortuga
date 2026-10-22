@@ -26,9 +26,11 @@ export async function GET(
   const h = intParam(sp.get("h"), 20)
   const a = intParam(sp.get("a"), 20)
   const remove = intParam(sp.get("remove"), 8)
+  const manual = sp.get("manual") === "1"
 
   const view = buildView(match, {
     simScore: h !== undefined && a !== undefined ? { home: h, away: a } : undefined,
+    manual,
     removeCount: remove,
   })
 

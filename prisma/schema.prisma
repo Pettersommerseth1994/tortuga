@@ -36,9 +36,11 @@ model TrackedMatch {
   /// Settes når kampen er ferdig og plassen frigjøres.
   archivedAt DateTime?
 
-  /// Når planen ble låst inn, og stillingen den ble laget på ("2-1").
+  /// Planen ved pause: når den ble låst inn, og stillingen den ble laget på ("2-1").
   lockedAt    DateTime?
   lockedScore String?
+  /// Planen før avspark (sluttresultat fra 0–0).
+  preLockedAt DateTime?
 
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   bets Bet[]
@@ -51,6 +53,8 @@ model TrackedMatch {
 model Bet {
   id             String    @id @default(cuid())
   trackedMatchId String
+  /// "pre" = lagt før avspark, "ht" = lagt ved pause.
+  kind           String    @default("ht")
   homeGoals      Int
   awayGoals      Int
   /// Modellens sannsynlighet da planen ble låst (0–1).
@@ -62,5 +66,5 @@ model Bet {
 
   trackedMatch TrackedMatch @relation(fields: [trackedMatchId], references: [id], onDelete: Cascade)
 
-  @@unique([trackedMatchId, homeGoals, awayGoals])
+  @@unique([trackedMatchId, kind, homeGoals, awayGoals])
 }

@@ -68,6 +68,7 @@ export async function untrackMatch(trackedId: string): Promise<Result> {
 
 const lockSchema = z.object({
   trackedId: z.string().min(1),
+  kind: z.enum(["pre", "ht"]),
   score: z.string().regex(/^\d{1,2}-\d{1,2}$/),
   legs: z
     .array(
@@ -80,37 +81,40 @@ const lockSchema = z.object({
       })
     )
     .min(1)
-    .max(9),
+    .max(25),
 })
 
 /**
  * Låser planen: lagrer de beholdte scenarioene som en sjekkliste. Allerede
- * plasserte bet røres ikke; resten erstattes.
+ * plasserte bet røres ikke; resten erstattes. «Før kamp» og «ved pause» er hver
+ * sin plan og påvirker ikke hverandre.
  */
 export async function lockPlan(input: z.input<typeof lockSchema>): Promise<Result> {
   const userId = await requireUserId()
   const parsed = lockSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "Ugyldig plan." }
-  const { trackedId, score, legs } = parsed.data
+  const { trackedId, kind, score, legs } = parsed.data
 
   const tracked = await db.trackedMatch.findFirst({
     where: { id: trackedId, userId, archivedAt: null },
   })
   if (!tracked) return { ok: false, error: "Kampen er ikke blant dine aktive kamper." }
 
-  const placed = await db.bet.findMany({ where: { trackedMatchId: trackedId, placed: true } })
+  const placed = await db.bet.findMany({
+    where: { trackedMatchId: trackedId, kind, placed: true },
+  })
   const placedKeys = new Set(placed.map((b) => `${b.homeGoals}-${b.awayGoals}`))
 
   await db.$transaction([
-    db.bet.deleteMany({ where: { trackedMatchId: trackedId, placed: false } }),
+    db.bet.deleteMany({ where: { trackedMatchId: trackedId, kind, placed: false } }),
     db.bet.createMany({
       data: legs
         .filter((l) => !placedKeys.has(`${l.homeGoals}-${l.awayGoals}`))
-        .map((l) => ({ ...l, trackedMatchId: trackedId })),
+        .map((l) => ({ ...l, kind, trackedMatchId: trackedId })),
     }),
     db.trackedMatch.update({
       where: { id: trackedId },
-      data: { lockedAt: new Date(), lockedScore: score },
+      data: kind === "pre" ? { preLockedAt: new Date() } : { lockedAt: new Date(), lockedScore: score },
     }),
   ])
 

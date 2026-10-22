@@ -77,3 +77,39 @@ test("removeCount is respected", () => {
   assert.equal(buildView(base, { removeCount: 3 }).analysis.scenarios.filter((s) => s.keep).length, 6)
   assert.equal(buildView(base, { removeCount: 5 }).analysis.scenarios.filter((s) => s.keep).length, 4)
 })
+
+test("manual score overrides the live score during halftime, but keeps live stats", () => {
+  const live = buildView(base)
+  const manual = buildView(base, { manual: true, simScore: { home: 0, away: 0 } })
+  assert.equal(live.manual, false)
+  assert.equal(manual.manual, true)
+  assert.deepEqual(manual.basis, { home: 0, away: 0 })
+  assert.equal(manual.hasStats, true)
+  // Samme stats, annen stilling → andre sluttresultater i rutenettet.
+  assert.notDeepEqual(
+    manual.analysis.scenarios.map((s) => `${s.home}-${s.away}`),
+    live.analysis.scenarios.map((s) => `${s.home}-${s.away}`)
+  )
+})
+
+test("manual is ignored before kickoff and after the final whistle", () => {
+  const scheduled = buildView(
+    { ...base, status: "scheduled", minute: null, halftime: null, homeScore: 0, awayScore: 0, stats: [] },
+    { manual: true, simScore: { home: 1, away: 1 } }
+  )
+  assert.equal(scheduled.manual, false)
+  assert.deepEqual(scheduled.basis, { home: 1, away: 1 }) // hva-om gjelder uansett
+  const finished = buildView(
+    { ...base, status: "finished", minute: 90, homeScore: 3, awayScore: 0, halftime: { home: 1, away: 0 } },
+    { manual: true, simScore: { home: 5, away: 5 } }
+  )
+  assert.equal(finished.manual, false)
+  assert.deepEqual(finished.basis, { home: 1, away: 0 })
+})
+
+test("competition level moves the prior: Champions League is higher-scoring than Conference League", () => {
+  const noOdds = { ...base, odds: null }
+  const cl = buildView({ ...noOdds, competition: { slug: "uefa.champions", name: "", short: "CL" } })
+  const ecl = buildView({ ...noOdds, competition: { slug: "uefa.europa.conf", name: "", short: "ECL" } })
+  assert.ok(cl.prior.home + cl.prior.away > ecl.prior.home + ecl.prior.away)
+})

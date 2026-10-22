@@ -20,6 +20,8 @@ export type MatchView = {
   prior: Prior
   analysis: Analysis
   hasStats: boolean
+  /** Stillingen er tastet inn for hånd i stedet for hentet live. */
+  manual: boolean
 }
 
 function pickStats(match: MatchDetail): { home: TeamStats; away: TeamStats } | null {
@@ -40,13 +42,21 @@ function pickStats(match: MatchDetail): { home: TeamStats; away: TeamStats } | n
 
 export function buildView(
   match: MatchDetail,
-  opts: { simScore?: { home: number; away: number }; removeCount?: number } = {}
+  opts: {
+    /** Stilling å regne fra: hva-om før avspark, eller manuelt innskrevet ved pause. */
+    simScore?: { home: number; away: number }
+    /** Bruk `simScore` også mens kampen pågår (live-feeden henger eller er feil). */
+    manual?: boolean
+    removeCount?: number
+  } = {}
 ): MatchView {
   const prior = estimatePrior(match)
   const removeCount = opts.removeCount ?? 4
 
   let mode: ViewMode
   let basis = { home: match.homeScore, away: match.awayScore }
+  const manual = Boolean(opts.manual && opts.simScore && (match.status === "live" || match.status === "halftime"))
+  if (manual) basis = opts.simScore!
   let minute = 45
   let stats: ReturnType<typeof pickStats> = null
 
@@ -82,5 +92,5 @@ export function buildView(
     removeCount,
   })
 
-  return { mode, basis, minute, prior, analysis, hasStats: stats !== null }
+  return { mode, basis, minute, prior, analysis, hasStats: stats !== null, manual }
 }

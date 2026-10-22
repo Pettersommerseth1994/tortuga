@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react"
 
-import type { LockInput } from "@/components/match/plan-panel"
+import type { BetKind, LockInput } from "@/components/match/plan-panel"
 import { MAX_ACTIVE_MATCHES } from "@/lib/limits"
 
 /**
@@ -9,6 +9,7 @@ import { MAX_ACTIVE_MATCHES } from "@/lib/limits"
  */
 
 export type StoredBet = {
+  kind: BetKind
   homeGoals: number
   awayGoals: number
   probability: number
@@ -22,7 +23,10 @@ export type StoredMatch = {
   homeName: string
   awayName: string
   kickoff: string
+  /** Stillingen planen ved pause ble låst på. */
   lockedScore: string | null
+  /** Planen før avspark er låst. */
+  preLocked: boolean
   bets: StoredBet[]
 }
 
@@ -34,7 +38,14 @@ function read(): StoredMatch[] {
   if (cache) return cache
   try {
     const parsed = JSON.parse(localStorage.getItem(KEY) ?? "[]")
-    cache = Array.isArray(parsed) ? parsed : []
+    // Eldre lagring hadde ikke bet-type; alt som lå der var pauseplaner.
+    cache = Array.isArray(parsed)
+      ? parsed.map((m: StoredMatch) => ({
+          ...m,
+          preLocked: m.preLocked ?? false,
+          bets: (m.bets ?? []).map((b) => ({ ...b, kind: b.kind ?? "ht" })),
+        }))
+      : []
   } catch {
     cache = []
   }
@@ -78,7 +89,7 @@ export function trackMatch(m: Pick<StoredMatch, "eventId" | "homeName" | "awayNa
   if (all.length >= MAX_ACTIVE_MATCHES) {
     return { ok: false, error: `Du har allerede ${MAX_ACTIVE_MATCHES} aktive kamper. Fjern én først.` }
   }
-  write([...all, { ...m, lockedScore: null, bets: [] }])
+  write([...all, { ...m, lockedScore: null, preLocked: false, bets: [] }])
   return { ok: true }
 }
 
@@ -92,30 +103,37 @@ export function lockPlan(eventId: string, input: LockInput): { ok: true } | { ok
   const m = all.find((x) => x.eventId === eventId)
   if (!m) return { ok: false, error: "Ta kampen med først." }
 
-  const placed = m.bets.filter((b) => b.placed)
+  // Planene før kamp og ved pause er uavhengige; bare den valgte erstattes.
+  const other = m.bets.filter((b) => b.kind !== input.kind)
+  const placed = m.bets.filter((b) => b.kind === input.kind && b.placed)
   const placedKeys = new Set(placed.map((b) => `${b.homeGoals}-${b.awayGoals}`))
   const fresh: StoredBet[] = input.legs
     .filter((l) => !placedKeys.has(`${l.homeGoals}-${l.awayGoals}`))
-    .map((l) => ({ ...l, placed: false }))
+    .map((l) => ({ ...l, kind: input.kind, placed: false }))
 
   write(
     all.map((x) =>
       x.eventId === eventId
-        ? { ...x, lockedScore: input.score, bets: [...placed, ...fresh].sort((a, b) => b.probability - a.probability) }
+        ? {
+            ...x,
+            lockedScore: input.kind === "ht" ? input.score : x.lockedScore,
+            preLocked: input.kind === "pre" ? true : x.preLocked,
+            bets: [...other, ...placed, ...fresh].sort((a, b) => b.probability - a.probability),
+          }
         : x
     )
   )
   return { ok: true }
 }
 
-export function setPlaced(eventId: string, homeGoals: number, awayGoals: number, placed: boolean) {
+export function setPlaced(eventId: string, kind: BetKind, homeGoals: number, awayGoals: number, placed: boolean) {
   write(
     read().map((m) =>
       m.eventId === eventId
         ? {
             ...m,
             bets: m.bets.map((b) =>
-              b.homeGoals === homeGoals && b.awayGoals === awayGoals ? { ...b, placed } : b
+              b.kind === kind && b.homeGoals === homeGoals && b.awayGoals === awayGoals ? { ...b, placed } : b
             ),
           }
         : m

@@ -6,7 +6,7 @@ import { lockPlan } from "@/lib/actions/matches"
 import { TrackButton } from "@/components/track-button"
 
 import { LiveMatch, type Payload } from "./live-match"
-import { PlanPanel, type TrackedState } from "./plan-panel"
+import { PlanPanel, trackedForKind, type TrackedAll } from "./plan-panel"
 
 /**
  * Den lokale appens kampvisning: data fra /api/matches, planen låses mot
@@ -20,7 +20,7 @@ export function LiveMatchLocal({
 }: {
   id: string
   initial: Payload
-  tracked: TrackedState
+  tracked: TrackedAll
   canTrack: boolean
 }) {
   const router = useRouter()
@@ -29,21 +29,24 @@ export function LiveMatchLocal({
     <LiveMatch
       id={id}
       initial={initial}
-      fetchPayload={async ({ h, a, remove }) => {
-        const res = await fetch(`/api/matches/${id}?h=${h}&a=${a}&remove=${remove}`, {
+      fetchPayload={async ({ h, a, remove, manual }) => {
+        const res = await fetch(`/api/matches/${id}?h=${h}&a=${a}&remove=${remove}&manual=${manual ? 1 : 0}`, {
           cache: "no-store",
         })
         if (!res.ok) throw new Error(String(res.status))
         return res.json()
       }}
-      renderPlan={({ match, kept, basis }) => (
+      renderPlan={({ kind, match, kept, basis }) => (
         <PlanPanel
+          // Egen instans per plan, så odds og budsjett ikke blandes mellom dem.
+          key={kind}
+          kind={kind}
           kept={kept}
           basisScore={basis}
-          tracked={tracked}
+          tracked={trackedForKind(tracked, kind)}
           home={match.home.shortName}
           away={match.away.shortName}
-          locked={match.status === "finished"}
+          locked={kind === "pre" ? match.status !== "scheduled" : match.status === "finished"}
           trackSlot={<TrackButton eventId={id} disabled={!canTrack} size="default" />}
           trackHint={
             canTrack

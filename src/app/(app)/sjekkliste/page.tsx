@@ -105,56 +105,79 @@ export default async function ChecklistPage() {
               </CardTitle>
               <CardDescription>
                 {formatKickoff(t.kickoff)}
-                {t.lockedScore ? ` · plan låst på stillingen ${t.lockedScore}` : ""}
                 {stake > 0 ? ` · ${formatKr(stake)} totalt` : ""}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="grid gap-6">
               {t.bets.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Ingen plan ennå.{" "}
                   <Link href={`/kamp/${t.eventId}`} className="underline underline-offset-4">
                     Lag og lås en plan
                   </Link>{" "}
-                  — helst i pausen.
+                  — før avspark eller i pausen.
                 </p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bet: riktig resultat</TableHead>
-                      <TableHead className="text-right">Modell</TableHead>
-                      <TableHead className="text-right">Odds</TableHead>
-                      <TableHead className="text-right">Innsats</TableHead>
-                      <TableHead className="w-36">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {t.bets.map((b) => (
-                      <TableRow key={b.id}>
-                        <TableCell className="tabular font-semibold">
-                          {t.homeName} {b.homeGoals}–{b.awayGoals} {t.awayName}
-                        </TableCell>
-                        <TableCell className="tabular text-right">
-                          {formatProb(b.probability)}
-                        </TableCell>
-                        <TableCell className="tabular text-right">
-                          {b.odds ? formatNumber(b.odds) : "–"}
-                        </TableCell>
-                        <TableCell className="tabular text-right">
-                          {b.stake != null ? formatKr(b.stake) : "–"}
-                        </TableCell>
-                        <TableCell>
-                          <BetCheck
-                            betId={b.id}
-                            placed={b.placed}
-                            label={`Plassert: ${b.homeGoals}–${b.awayGoals}`}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                (["pre", "ht"] as const).map((kind) => {
+                  const bets = t.bets.filter((b) => b.kind === kind)
+                  if (bets.length === 0) return null
+                  const missed =
+                    kind === "pre" &&
+                    t.kickoff.getTime() < Date.now() &&
+                    bets.some((b) => !b.placed)
+                  return (
+                    <div key={kind} className="grid gap-2">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="text-sm font-medium">
+                          {kind === "pre"
+                            ? "Før kamp — plasseres én gang, før avspark"
+                            : `Ved pause — plan låst på ${t.lockedScore ?? "?"}`}
+                        </h3>
+                        {missed && (
+                          <span className="text-xs text-bear">
+                            Avspark er gått — de som ikke er plassert kan ikke lenger spilles før kamp.
+                          </span>
+                        )}
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Bet: riktig resultat</TableHead>
+                            <TableHead className="text-right">Modell</TableHead>
+                            <TableHead className="text-right">Odds</TableHead>
+                            <TableHead className="text-right">Innsats</TableHead>
+                            <TableHead className="w-36">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {bets.map((b) => (
+                            <TableRow key={b.id}>
+                              <TableCell className="tabular font-semibold">
+                                {t.homeName} {b.homeGoals}–{b.awayGoals} {t.awayName}
+                              </TableCell>
+                              <TableCell className="tabular text-right">
+                                {formatProb(b.probability)}
+                              </TableCell>
+                              <TableCell className="tabular text-right">
+                                {b.odds ? formatNumber(b.odds) : "–"}
+                              </TableCell>
+                              <TableCell className="tabular text-right">
+                                {b.stake != null ? formatKr(b.stake) : "–"}
+                              </TableCell>
+                              <TableCell>
+                                <BetCheck
+                                  betId={b.id}
+                                  placed={b.placed}
+                                  label={`Plassert: ${b.homeGoals}–${b.awayGoals}`}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )
+                })
               )}
             </CardContent>
           </Card>

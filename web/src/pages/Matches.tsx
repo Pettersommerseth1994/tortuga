@@ -75,6 +75,8 @@ export function Matches() {
             {tracked.map((t) => {
               const m = byId.get(t.eventId)
               const open = t.bets.filter((b) => !b.placed).length
+              const preCount = t.bets.filter((b) => b.kind === "pre").length
+              const htCount = t.bets.length - preCount
               const started = m && m.status !== "scheduled"
               return (
                 <Card key={t.eventId} className="gap-3 py-4">
@@ -106,9 +108,9 @@ export function Matches() {
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground">
-                        {t.lockedScore
-                          ? `Plan låst på ${t.lockedScore} · ${open} bet gjenstår`
-                          : "Plan ikke laget"}
+                        {t.bets.length === 0
+                          ? "Plan ikke laget"
+                          : `${[preCount > 0 && `${preCount} før kamp`, htCount > 0 && `${htCount} ved pause`].filter(Boolean).join(" · ")} · ${open} gjenstår`}
                       </span>
                       <Button asChild size="sm" variant="secondary">
                         <Link to={`/kamp/${t.eventId}`}>

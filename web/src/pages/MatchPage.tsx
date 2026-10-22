@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router"
 import { toast } from "sonner"
 
 import { LiveMatch } from "@/components/match/live-match"
-import { PlanPanel } from "@/components/match/plan-panel"
+import { PlanPanel, trackedForKind } from "@/components/match/plan-panel"
 import { Button } from "@/components/ui/button"
 import { MAX_ACTIVE_MATCHES } from "@/lib/limits"
 
@@ -28,18 +28,27 @@ export function MatchPage() {
         key={id}
         id={id}
         fetchPayload={(opts) => fetchPayload(id, opts)}
-        renderPlan={({ match, kept, basis }) => (
+        renderPlan={({ kind, match, kept, basis }) => (
           <PlanPanel
+            // Egen instans per plan, så odds og budsjett ikke blandes mellom dem.
+            key={kind}
+            kind={kind}
             kept={kept}
             basisScore={basis}
             home={match.home.shortName}
             away={match.away.shortName}
-            locked={match.status === "finished"}
-            tracked={
+            locked={kind === "pre" ? match.status !== "scheduled" : match.status === "finished"}
+            tracked={trackedForKind(
               stored
-                ? { id: stored.eventId, lockedScore: stored.lockedScore, bets: stored.bets }
-                : null
-            }
+                ? {
+                    id: stored.eventId,
+                    lockedScore: stored.lockedScore,
+                    preLocked: stored.preLocked,
+                    bets: stored.bets,
+                  }
+                : null,
+              kind
+            )}
             trackSlot={
               <Button
                 disabled={!canTrack}
