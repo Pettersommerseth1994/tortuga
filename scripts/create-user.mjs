@@ -21,11 +21,11 @@ if (!email) {
 let password = process.env.TORTUGA_PASSWORD
 if (!password) {
   const rl = createInterface({ input: stdin, output: stdout })
-  password = await rl.question("Passord (minst 12 tegn): ")
+  password = await rl.question("Passord (minst 8 tegn): ")
   rl.close()
 }
-if (password.length < 12) {
-  console.error("Passordet må ha minst 12 tegn.")
+if (password.length < 8) {
+  console.error("Passordet må ha minst 8 tegn.")
   process.exit(1)
 }
 

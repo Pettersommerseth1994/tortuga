@@ -32,7 +32,7 @@ Start databasen én gang i en egen terminal, lag tabellene og brukeren din, og a
 ```bash
 npm run db:start                # terminal 1
 npm run db:push                 # terminal 2
-npm run user:create -- deg@epost.no "Ditt Navn"   # spør om passord (minst 12 tegn)
+npm run user:create -- deg@epost.no "Ditt Navn"   # spør om passord (minst 8 tegn)
 ```
 
 Deretter, hver gang du vil bruke Tortuga:
