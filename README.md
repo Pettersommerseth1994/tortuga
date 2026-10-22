@@ -62,6 +62,8 @@ Koden ligger i [`src/lib/model`](src/lib/model). Mål modelleres som uavhengige 
 4. **Kamptilstand og røde kort.** Laget som ligger under presser litt mer; rødt kort senker eget lag og hever motstanderen.
 5. **Ni scenarioer.** `P(i mål til) × P(j mål til)` for i, j ∈ {0,1,2}. De fem mest sannsynlige beholdes. Hver rute har en tekstbegrunnelse.
 
+**Kalibrering mot historikk.** Konstantene er målt, ikke gjettet: på 1 249 kamper i CL, EL og ECL (feb. 2024 – okt. 2026, 90 minutter) er snittet 1,74 mål hjemme og 1,26 borte, 56,0 % av målene faller i 2. omgang, og kun 4,7 % av kampene ender 0–0. Poisson-modellen treffer fordelingen godt, også de ni rutene etter pause. Reproduser tallene med `node scripts/historical-stats.mjs`.
+
 Ærlig om begrensningene: dette er en enkel modell. Den rangerer scenarioene fornuftig, men bookmakerne har mer informasjon (skade, oppstilling, skuddposisjon) og slår den på odds. Å fordele bet over de mest sannsynlige resultatene gir ikke positiv forventning av seg selv. Det avhenger av om oddsene i Oddsen er høyere enn modellens sannsynlighet tilsier. Legg inn oddsene fra Oddsen i betting-planen: Tortuga viser da om Σ(1/odds) er under 1,00 (først da kan et treff gi overskudd) og fordeler innsatsen så alle treff gir omtrent lik utbetaling.
 
 Åpner du en ferdig kamp, kjører modellen på pausestillingen og viser om sluttresultatet var blant de beholdte. Ikke-startede kamper har en hva-om-simulering der du velger pausestillingen selv.

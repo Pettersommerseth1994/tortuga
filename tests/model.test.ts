@@ -25,7 +25,7 @@ test("poisson pmf sums to 1", () => {
 test("goalsShareAt is monotone from 0 to 1 and 45' ≈ first-half share", () => {
   assert.equal(goalsShareAt(0), 0)
   assert.equal(goalsShareAt(120), 1)
-  assert.ok(Math.abs(goalsShareAt(45) - 0.455) < 1e-9)
+  assert.ok(Math.abs(goalsShareAt(45) - 0.44) < 1e-9)
   let prev = 0
   for (let m = 0; m <= 100; m++) {
     const v = goalsShareAt(m)

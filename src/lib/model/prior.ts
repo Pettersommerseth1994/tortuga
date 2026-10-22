@@ -17,9 +17,14 @@ export type Prior = {
   probs: { home: number; draw: number; away: number }
 }
 
-/** Snitt mål per lag per kamp i Champions League — ankeret alt trekkes mot. */
-const LEAGUE_GOALS_PER_TEAM = 1.4
-const HOME_ADVANTAGE = 1.1
+/**
+ * Snitt mål per lag per kamp — ankeret alt trekkes mot — og hjemmefordel som
+ * multiplikator på hjemmelagets (og divisor på bortelagets) rate. Målt på
+ * 1 249 kamper i CL, EL og ECL 2024–26: 1,74 hjemme og 1,26 borte, altså
+ * 1,5 i snitt og en faktor 1,17 hver vei (scripts/historical-stats.mjs).
+ */
+const LEAGUE_GOALS_PER_TEAM = 1.5
+const HOME_ADVANTAGE = 1.17
 
 /** Fjerner bookmakerens marginal ved å normalisere de inverse oddsene. */
 export function devig(odds: Pick<MatchOdds, "home" | "draw" | "away">) {

@@ -17,3 +17,4 @@ prisma/dev.db-journal
 .postgres-data
 .postgres.log
 web/dist
+.cache

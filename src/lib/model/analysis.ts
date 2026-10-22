@@ -21,8 +21,11 @@ import type { Prior } from "./prior"
 
 export const GRID = 2 // hvert lag kan score 0..GRID mål til
 
-/** Andel av kampens mål som typisk faller i 1. omgang (resten i 2.). */
-const FIRST_HALF_SHARE = 0.455
+/**
+ * Andel av kampens mål som typisk faller i 1. omgang (resten i 2.). Målt til 44,0 %
+ * på 1 249 CL/EL/ECL-kamper 2024–26 (scripts/historical-stats.mjs).
+ */
+const FIRST_HALF_SHARE = 0.44
 /** Kampen regnes som ferdig ved ca. 95 spilte minutter (med tillegg). */
 const MATCH_END = 95
 
