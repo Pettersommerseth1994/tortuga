@@ -1,0 +1,3 @@
+@import "../../src/app/globals.css";
+/* Tailwind skanner bare prosjektroten (web/) som standard; src/ har komponentene. */
+@source "../../src";

@@ -14,10 +14,16 @@ const config = [
       ".postgres-data/**",
       "next-env.d.ts",
       "scripts/**",
+      "web/dist/**",
     ],
   },
   ...coreWebVitals,
   ...typescript,
+  {
+    // Pages-versjonen er Vite, ikke Next.js — next/image finnes ikke der.
+    files: ["web/**"],
+    rules: { "@next/next/no-img-element": "off" },
+  },
 ]
 
 export default config

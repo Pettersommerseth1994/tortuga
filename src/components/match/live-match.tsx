@@ -7,6 +7,7 @@ import { AlertCircleIcon, FlaskConicalIcon, InfoIcon, RadioIcon } from "lucide-r
 import type { MatchDetail } from "@/lib/football/types"
 import { formatKickoff, formatNumber, formatProb } from "@/lib/format"
 import type { MatchView } from "@/lib/match-view"
+import type { Scenario } from "@/lib/model/analysis"
 import { cn } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -15,13 +16,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 
-import { PlanPanel, type TrackedState } from "./plan-panel"
 import { ScenarioGrid } from "./scenario-grid"
 import { StatsCompare } from "./stats-compare"
 import { TeamBadge } from "./team-badge"
 import { TeamPanel } from "./team-panel"
 
-type Payload = { match: MatchDetail; view: MatchView }
+export type Payload = { match: MatchDetail; view: MatchView }
 
 const REMOVE_OPTIONS = [3, 4, 5]
 
@@ -34,16 +34,28 @@ function pollInterval(match: MatchDetail): number | false {
   return false
 }
 
+/**
+ * Kampvisningen: resultattavle, ni scenarioer, begrunnelse, statistikk og lag.
+ * Datahenting og lagring av planen injiseres, slik at samme visning brukes både
+ * av den lokale appen (serverdata, database) og av Pages-versjonen (direkte mot
+ * ESPN, nettleserlagring).
+ */
 export function LiveMatch({
   id,
   initial,
-  tracked,
-  canTrack,
+  fetchPayload,
+  renderPlan,
 }: {
   id: string
-  initial: Payload
-  tracked: TrackedState
-  canTrack: boolean
+  /** Ferdig hentet data til første visning (server). Utelates på Pages. */
+  initial?: Payload
+  fetchPayload: (opts: { h: number; a: number; remove: number }) => Promise<Payload>
+  /** Betting-panelet; får de beholdte scenarioene og grunnlaget for dem. */
+  renderPlan: (args: {
+    match: MatchDetail
+    kept: Scenario[]
+    basis: { home: number; away: number }
+  }) => React.ReactNode
 }) {
   const [sim, setSim] = useState({ h: 0, a: 0 })
   const [removeCount, setRemoveCount] = useState(4)
@@ -51,19 +63,14 @@ export function LiveMatch({
   const initialKey = sim.h === 0 && sim.a === 0 && removeCount === 4
   const { data, isFetching, isError } = useQuery<Payload>({
     queryKey: ["match", id, sim.h, sim.a, removeCount],
-    queryFn: async () => {
-      const res = await fetch(`/api/matches/${id}?h=${sim.h}&a=${sim.a}&remove=${removeCount}`, {
-        cache: "no-store",
-      })
-      if (!res.ok) throw new Error(String(res.status))
-      return res.json()
-    },
+    queryFn: () => fetchPayload({ h: sim.h, a: sim.a, remove: removeCount }),
     initialData: initialKey ? initial : undefined,
     placeholderData: keepPreviousData,
     refetchInterval: (q) => (q.state.data ? pollInterval(q.state.data.match) : false),
   })
 
-  const { match, view } = data ?? initial
+  if (!data) return <p className="text-sm text-muted-foreground">Henter kamp …</p>
+  const { match, view } = data
   const { analysis } = view
   const isLive = match.status === "live" || match.status === "halftime"
   const started = match.status !== "scheduled"
@@ -229,16 +236,7 @@ export function LiveMatch({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <PlanPanel
-              eventId={id}
-              kept={kept}
-              basisScore={view.basis}
-              tracked={tracked}
-              canTrack={canTrack}
-              home={match.home.shortName}
-              away={match.away.shortName}
-              locked={match.status === "finished"}
-            />
+            {renderPlan({ match, kept, basis: view.basis })}
           </CardContent>
         </Card>
       </div>

@@ -1,15 +1,12 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useMemo, useState, useTransition } from "react"
 import { ClipboardCopyIcon, ExternalLinkIcon, Loader2Icon, LockIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { lockPlan } from "@/lib/actions/matches"
 import { formatKr, formatNumber, formatProb, parseOdds } from "@/lib/format"
 import type { Scenario } from "@/lib/model/analysis"
 import { stakePlan } from "@/lib/model/stakes"
-import { TrackButton } from "@/components/track-button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +19,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+
+export type LockInput = {
+  score: string
+  legs: {
+    homeGoals: number
+    awayGoals: number
+    probability: number
+    odds: number | null
+    stake: number | null
+  }[]
+}
+
+export type LockResult = { ok: true } | { ok: false; error: string }
 
 export type TrackedState = {
   id: string
@@ -37,26 +47,30 @@ const key = (s: { home: number; away: number }) => `${s.home}-${s.away}`
  * for hånd fra Oddsen — Tortuga har ikke tilgang til Norsk Tippings odds.
  */
 export function PlanPanel({
-  eventId,
   kept,
   basisScore,
   tracked,
-  canTrack,
+  trackSlot,
+  trackHint,
+  onLock,
   home,
   away,
   locked,
 }: {
-  eventId: string
   kept: Scenario[]
   basisScore: { home: number; away: number }
   tracked: TrackedState
-  canTrack: boolean
+  /** Vises i stedet for «Lås plan» når kampen ikke er tatt med ennå. */
+  trackSlot: React.ReactNode
+  /** Forklaring under knappene når kampen ikke kan tas med. */
+  trackHint?: string
+  /** Lagrer planen (serveraksjon lokalt, nettleserlagring på Pages). */
+  onLock: (input: LockInput) => Promise<LockResult>
   home: string
   away: string
   /** Kampen er ferdig — planen kan ikke lenger låses. */
   locked: boolean
 }) {
-  const router = useRouter()
   const [pending, start] = useTransition()
   const [budget, setBudget] = useState("500")
   const [odds, setOdds] = useState<Record<string, string>>(() =>
@@ -118,8 +132,7 @@ export function PlanPanel({
   function lock() {
     if (!tracked) return
     start(async () => {
-      const res = await lockPlan({
-        trackedId: tracked.id,
+      const res = await onLock({
         score: key(basisScore),
         legs: sorted.map((s) => ({
           homeGoals: s.home,
@@ -130,10 +143,7 @@ export function PlanPanel({
         })),
       })
       if (!res.ok) toast.error(res.error)
-      else {
-        toast.success("Planen er låst — se sjekklisten.")
-        router.refresh()
-      }
+      else toast.success("Planen er låst — se sjekklisten.")
     })
   }
 
@@ -243,7 +253,7 @@ export function PlanPanel({
             {tracked.lockedScore ? "Lås plan på nytt" : "Lås plan → sjekkliste"}
           </Button>
         ) : (
-          <TrackButton eventId={eventId} disabled={!canTrack} size="default" />
+          trackSlot
         )}
         <Button variant="outline" onClick={copy}>
           <ClipboardCopyIcon /> Kopier
@@ -254,10 +264,8 @@ export function PlanPanel({
           </a>
         </Button>
       </div>
-      {!tracked && !canTrack && (
-        <p className="text-xs text-muted-foreground">
-          Du har allerede tre aktive kamper. Fjern én på Kamper-siden for å ta denne med.
-        </p>
+      {!tracked && trackHint && (
+        <p className="text-xs text-muted-foreground">{trackHint}</p>
       )}
     </div>
   )

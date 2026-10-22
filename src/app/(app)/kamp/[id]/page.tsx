@@ -8,7 +8,7 @@ import { requireUserId } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { getMatch } from "@/lib/football/espn"
 import { buildView } from "@/lib/match-view"
-import { LiveMatch } from "@/components/match/live-match"
+import { LiveMatchLocal } from "@/components/match/live-match-local"
 import { Button } from "@/components/ui/button"
 
 export const dynamic = "force-dynamic"
@@ -48,7 +48,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         </Link>
       </Button>
 
-      <LiveMatch
+      <LiveMatchLocal
         id={id}
         initial={{ match, view }}
         canTrack={activeCount < MAX_ACTIVE_MATCHES}

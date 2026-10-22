@@ -86,7 +86,29 @@ I stedet er flyten gjort så rask som mulig: **Sjekklisten** viser nøyaktig hvi
 - Sett tapsgrense og spillepauser i Norsk Tipping selv. De gjelder uansett hva Tortuga foreslår.
 - Sjekk i Oddsen at «riktig resultat» finnes for kampen og at spillet er live-åpent. Ikke alle sluttresultater (f.eks. 4–3) tilbys alltid.
 
-## Drift i produksjon (valgfritt)
+## Offentlig versjon på GitHub Pages
+
+Repoet er offentlig, og [`web/`](web) er en **statisk** versjon som publiseres automatisk til GitHub Pages ved hver push til `main` (workflow: [`pages.yml`](.github/workflows/pages.yml)).
+
+Forskjellen fra den lokale appen:
+
+|                      | Lokal app (`npm run tortuga`) | Pages (`web/`)                     |
+| -------------------- | ----------------------------- | ---------------------------------- |
+| Innlogging           | Ja                            | **Nei — åpen for alle**            |
+| Planer og sjekkliste | Database på Mac-en            | `localStorage` i din nettleser     |
+| Kampdata             | Server henter fra ESPN        | Nettleseren henter direkte fra ESPN |
+| Modell, UI, analyse  | Samme kode                    | Samme kode                         |
+
+Siden er åpen, men planene dine ligger bare i din egen nettleser og kan ikke sees av andre. Tømmer du nettleserdata, forsvinner de.
+
+```bash
+npm run dev:web      # lokal utviklingsserver for Pages-versjonen
+npm run build:web    # bygger til web/dist
+```
+
+Samme ESPN-forbehold som over gjelder: API-et er uoffisielt, og nettleseren din kaller det direkte.
+
+## Drift av den lokale appen i produksjon (valgfritt)
 
 Ikke nødvendig for lokal bruk. Skal du senere ha appen tilgjengelig fra mobilnett, trenger den en server (ikke GitHub Pages, som bare kan hoste statiske filer):
 

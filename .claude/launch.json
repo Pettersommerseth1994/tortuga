@@ -6,6 +6,20 @@
       "runtimeExecutable": "./scripts/dev.sh",
       "runtimeArgs": [],
       "port": 3000
+    },
+    {
+      "name": "Tortuga Pages",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--config",
+        "web/vite.config.ts",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
     }
   ]
 }
