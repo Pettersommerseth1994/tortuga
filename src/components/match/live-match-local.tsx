@@ -29,6 +29,9 @@ export function LiveMatchLocal({
     <LiveMatch
       id={id}
       initial={initial}
+      lockedPreKeys={(tracked?.bets ?? [])
+        .filter((b) => b.kind === "pre")
+        .map((b) => `${b.homeGoals}-${b.awayGoals}`)}
       fetchPayload={async ({ h, a, remove, manual }) => {
         const res = await fetch(`/api/matches/${id}?h=${h}&a=${a}&remove=${remove}&manual=${manual ? 1 : 0}`, {
           cache: "no-store",

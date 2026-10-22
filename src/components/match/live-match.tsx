@@ -48,11 +48,14 @@ export function LiveMatch({
   initial,
   fetchPayload,
   renderPlan,
+  lockedPreKeys,
 }: {
   id: string
   /** Ferdig hentet data til første visning (server). Utelates på Pages. */
   initial?: Payload
   fetchPayload: (opts: { h: number; a: number; remove: number; manual: boolean }) => Promise<Payload>
+  /** Resultatene i den låste førkampsplanen, så «rediger» åpner med dem valgt. */
+  lockedPreKeys?: string[]
   /**
    * Betting-panelet. «pre» = sluttresultat før avspark (basis 0–0), «ht» = ved
    * pause (basis = stillingen). Får de valgte scenarioene.
@@ -151,6 +154,7 @@ export function LiveMatch({
           <PreMatchSection
             match={match}
             prior={view.prior}
+            lockedKeys={lockedPreKeys}
             renderPlan={({ kept: preKept }) =>
               renderPlan({ kind: "pre", match, kept: preKept, basis: { home: 0, away: 0 } })
             }

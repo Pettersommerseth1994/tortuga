@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ExternalLinkIcon } from "lucide-react"
+import { ExternalLinkIcon, PencilIcon } from "lucide-react"
 
 import { requireUserId } from "@/lib/auth"
 import { db } from "@/lib/db"
@@ -15,7 +15,14 @@ import { ComboCheck } from "@/components/combo-check"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -127,6 +134,13 @@ export default async function ChecklistPage() {
                 {formatKickoff(t.kickoff)}
                 {stake > 0 ? ` · ${formatKr(stake)} totalt` : ""}
               </CardDescription>
+              <CardAction>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/kamp/${t.eventId}`}>
+                    <PencilIcon /> Rediger
+                  </Link>
+                </Button>
+              </CardAction>
             </CardHeader>
             <CardContent className="grid gap-6">
               {t.bets.length === 0 ? (
@@ -212,6 +226,13 @@ export default async function ChecklistPage() {
               Dobbel og trippel på riktig resultat: alle kampene må treffe. Legges inn som kombinasjonsspill i
               Oddsen.
             </CardDescription>
+            <CardAction>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/kombi">
+                  <PencilIcon /> Rediger
+                </Link>
+              </Button>
+            </CardAction>
           </CardHeader>
           <CardContent>
             <ComboBetsTable

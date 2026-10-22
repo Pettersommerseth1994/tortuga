@@ -34,6 +34,8 @@ Hver kamp har to faner, og planene er uavhengige av hverandre:
 - **Lik utbetaling** (standard): innsats ∝ 1/odds, slik at alle treff gir omtrent samme utbetaling. Jevnest mulig, men tar ikke hensyn til hvilke odds som er gode.
 - **Verdi (Kelly):** Kelly-kriteriet for gjensidig utelukkende utfall ([`kellyPlan`](src/lib/model/stakes.ts)). Det fordelingen som maksimerer forventet vekst, gitt modellens sannsynligheter. Utfall rangeres etter modell × odds, og det satses bare der den er høyere enn «reserven» (til å begynne med 1), mest der fordelen er størst. Budsjettet regnes som banken for kampen, så mer enn det satses aldri, og det som ikke trengs beholdes. Standard er halv Kelly (¼, ½ eller full kan velges), siden fullt Kelly forutsetter at modellen har rett. Finnes det ingen resultater med modell × odds over 1, anbefaler Kelly å ikke spille, og Tortuga sier det rett ut. Testene viser at ingen justering av fordelingen slår Kelly på forventet vekst.
 
+Hver kamp i sjekklisten har en **Rediger**-knapp som tar deg til kampsiden for å endre planen (og kombinasjonskortet til Kombinasjoner-siden). Åpner du kampen igjen, er førkampsplanen din valgt fra start, med odds fra det du låste, og «Lås plan på nytt» erstatter bare de som ikke er plassert.
+
 Sjekklisten viser de to typene hver for seg, og advarer hvis avspark er gått uten at alle førkampsbettene er plassert.
 
 ## Kom i gang (lokalt på Mac-en)

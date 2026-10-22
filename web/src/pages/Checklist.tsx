@@ -1,10 +1,17 @@
-import { ExternalLinkIcon } from "lucide-react"
+import { ExternalLinkIcon, PencilIcon } from "lucide-react"
 import { Link } from "react-router"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatKickoff, formatKr, formatNumber, formatProb } from "@/lib/format"
 
@@ -80,6 +87,13 @@ export function Checklist() {
                 {formatKickoff(t.kickoff)}
                 {stake > 0 ? ` · ${formatKr(stake)} totalt` : ""}
               </CardDescription>
+              <CardAction>
+                <Button asChild size="sm" variant="outline">
+                  <Link to={`/kamp/${t.eventId}`}>
+                    <PencilIcon /> Rediger
+                  </Link>
+                </Button>
+              </CardAction>
             </CardHeader>
             <CardContent className="grid gap-6">
               {t.bets.length === 0 ? (
@@ -168,6 +182,13 @@ export function Checklist() {
               Dobbel og trippel på riktig resultat: alle kampene må treffe. Legges inn som kombinasjonsspill i
               Oddsen.
             </CardDescription>
+            <CardAction>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/kombi">
+                  <PencilIcon /> Rediger
+                </Link>
+              </Button>
+            </CardAction>
           </CardHeader>
           <CardContent>
             <ComboBetsTable

@@ -27,6 +27,9 @@ export function MatchPage() {
       <LiveMatch
         key={id}
         id={id}
+        lockedPreKeys={(stored?.bets ?? [])
+          .filter((b) => b.kind === "pre")
+          .map((b) => `${b.homeGoals}-${b.awayGoals}`)}
         fetchPayload={(opts) => fetchPayload(id, opts)}
         renderPlan={({ kind, match, kept, basis }) => (
           <PlanPanel

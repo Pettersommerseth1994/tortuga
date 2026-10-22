@@ -28,15 +28,31 @@ const key = (s: { home: number; away: number }) => `${s.home}-${s.away}`
 export function PreMatchSection({
   match,
   prior,
+  lockedKeys,
   renderPlan,
 }: {
   match: MatchDetail
   prior: Prior
+  /** Resultatene i den låste førkampsplanen («1-0», …). Åpner du kampen igjen, er de valgt fra start. */
+  lockedKeys?: string[]
   renderPlan: (args: { kept: Scenario[] }) => React.ReactNode
 }) {
   const [keepCount, setKeepCount] = useState(DEFAULT_KEEP)
-  // Bare avvik fra modellens valg lagres; endrer du antall, nullstilles de.
-  const [override, setOverride] = useState<Record<string, boolean>>({})
+  // Bare avvik fra modellens valg lagres; endrer du antall, nullstilles de. Med en låst plan
+  // starter vi fra den, slik at «rediger» viser det du faktisk låste.
+  const [override, setOverride] = useState<Record<string, boolean>>(() => {
+    if (!lockedKeys || lockedKeys.length === 0) return {}
+    const locked = new Set(lockedKeys)
+    const model = analysePreMatch({
+      home: match.home.shortName,
+      away: match.away.shortName,
+      prior,
+      keepCount: DEFAULT_KEEP,
+    })
+    return Object.fromEntries(
+      model.scenarios.flatMap((s) => (locked.has(key(s)) !== s.keep ? [[key(s), locked.has(key(s))]] : []))
+    )
+  })
 
   const analysis = useMemo(
     () =>
