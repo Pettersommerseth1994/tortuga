@@ -1,16 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
-import { AlertCircleIcon, ArrowRightIcon, PlusIcon, XIcon } from "lucide-react"
+import { ArrowRightIcon, PlusIcon, XIcon } from "lucide-react"
 import { Link } from "react-router"
 import { toast } from "sonner"
 
-import { MatchRow } from "../components/MatchRow"
+import { MatchRow } from "@/components/match/match-row"
+import { MatchSections } from "@/components/match/match-sections"
 import { TeamBadge } from "@/components/match/team-badge"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { MatchSummary } from "@/lib/football/types"
-import { dayKey, formatDay, formatKickoff } from "@/lib/format"
+import { formatKickoff } from "@/lib/format"
 import { MAX_ACTIVE_MATCHES } from "@/lib/limits"
 
 import { listMatches } from "../lib/data"
@@ -18,25 +18,17 @@ import { trackMatch, untrackMatch, useTracked } from "../lib/store"
 
 export function Matches() {
   const tracked = useTracked()
-  const { data: matches = [], error } = useQuery({
+  const { data: matches = [], error, isPending } = useQuery({
     queryKey: ["matches"],
     queryFn: () => listMatches(),
-    refetchInterval: 30_000,
+    // Raskere når noe spilles; ellers sparer vi ESPN (og nettleseren) for kall.
+    refetchInterval: (q) =>
+      q.state.data?.some((m) => m.status === "live" || m.status === "halftime") ? 30_000 : 120_000,
   })
 
   const byId = new Map(matches.map((m) => [m.id, m]))
   const trackedIds = new Set(tracked.map((t) => t.eventId))
   const full = tracked.length >= MAX_ACTIVE_MATCHES
-
-  const live = matches.filter((m) => m.status === "live" || m.status === "halftime")
-  const upcoming = matches.filter((m) => m.status === "scheduled")
-  const finished = matches.filter((m) => m.status === "finished").reverse()
-
-  const upcomingByDay = new Map<string, MatchSummary[]>()
-  for (const m of upcoming) {
-    const k = dayKey(m.kickoff)
-    upcomingByDay.set(k, [...(upcomingByDay.get(k) ?? []), m])
-  }
 
   const add = (m: MatchSummary) => {
     const res = trackMatch({
@@ -49,35 +41,15 @@ export function Matches() {
     else toast.success("Kampen er med i Tortuga.")
   }
 
-  const trailingFor = (m: MatchSummary) =>
-    trackedIds.has(m.id) ? (
-      <Badge variant="secondary">Med</Badge>
-    ) : (
-      <Button size="sm" variant="outline" disabled={full} onClick={() => add(m)}>
-        <PlusIcon /> Ta med
-      </Button>
-    )
-
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Champions League</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Kamper</h1>
         <p className="text-sm text-muted-foreground">
-          Velg opptil {MAX_ACTIVE_MATCHES} kamper. Ved pause regner Tortuga ut de fem mest
-          sannsynlige sluttresultatene av ni.
+          Champions League, Europa League og Conference League. Velg opptil {MAX_ACTIVE_MATCHES}{" "}
+          kamper; ved pause regner Tortuga ut de fem mest sannsynlige sluttresultatene av ni.
         </p>
       </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircleIcon />
-          <AlertTitle>Kunne ikke hente kamper</AlertTitle>
-          <AlertDescription>
-            Dataleverandøren svarte ikke ({error instanceof Error ? error.message : "ukjent feil"}).
-            Prøver igjen automatisk.
-          </AlertDescription>
-        </Alert>
-      )}
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -109,6 +81,7 @@ export function Matches() {
                   <CardHeader className="px-4">
                     <CardDescription className="flex items-center justify-between">
                       <span>
+                        {m ? `${m.competition.short} · ` : ""}
                         {m && (m.status === "live" || m.status === "halftime")
                           ? `Live · ${m.statusLabel}`
                           : m?.status === "finished"
@@ -151,57 +124,30 @@ export function Matches() {
         )}
       </section>
 
-      {live.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-            Live nå
-          </h2>
-          <div className="grid gap-2">
-            {live.map((m) => (
-              <MatchRow key={m.id} match={m} trailing={trailingFor(m)} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-          Kommende
-        </h2>
-        {upcoming.length === 0 && !error && (
-          <p className="text-sm text-muted-foreground">
-            {matches.length === 0 ? "Henter kamper …" : "Ingen kommende kamper de neste tre ukene."}
-          </p>
+      <MatchSections
+        matches={matches}
+        loading={isPending}
+        error={error ? (error instanceof Error ? error.message : "ukjent feil") : null}
+        renderRow={(m) => (
+          <MatchRow
+            match={m}
+            renderLink={({ className, children }) => (
+              <Link to={`/kamp/${m.id}`} className={className}>
+                {children}
+              </Link>
+            )}
+            trailing={
+              m.status === "finished" ? null : trackedIds.has(m.id) ? (
+                <Badge variant="secondary">Med</Badge>
+              ) : (
+                <Button size="sm" variant="outline" disabled={full} onClick={() => add(m)}>
+                  <PlusIcon /> Ta med
+                </Button>
+              )
+            }
+          />
         )}
-        {[...upcomingByDay.entries()].map(([day, list]) => (
-          <div key={day} className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium capitalize">{formatDay(list[0].kickoff)}</h3>
-            <div className="grid gap-2">
-              {list.map((m) => (
-                <MatchRow key={m.id} match={m} trailing={trailingFor(m)} />
-              ))}
-            </div>
-          </div>
-        ))}
-      </section>
-
-      {finished.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">
-              Nylig ferdige
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Åpne en ferdig kamp for å se hva modellen ville gitt deg ved pause.
-            </p>
-          </div>
-          <div className="grid gap-2">
-            {finished.map((m) => (
-              <MatchRow key={m.id} match={m} />
-            ))}
-          </div>
-        </section>
-      )}
+      />
     </div>
   )
 }

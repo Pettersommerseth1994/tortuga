@@ -1,4 +1,5 @@
 import type {
+  Competition,
   MatchDetail,
   MatchEvent,
   MatchOdds,
@@ -20,7 +21,24 @@ import type {
  * gir tomme verdier, ikke krasj).
  */
 
-const BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions"
+const API = "https://site.api.espn.com/apis/site/v2/sports/soccer"
+
+/** Turneringene Tortuga viser. Rekkefølgen er også visningsrekkefølgen i filteret. */
+export const COMPETITIONS: Competition[] = [
+  { slug: "uefa.champions", name: "Champions League", short: "CL" },
+  { slug: "uefa.europa", name: "Europa League", short: "EL" },
+  { slug: "uefa.europa.conf", name: "Conference League", short: "ECL" },
+]
+
+function competitionFor(slug: string | undefined, fallbackName?: string): Competition {
+  return (
+    COMPETITIONS.find((c) => c.slug === slug) ?? {
+      slug: slug ?? "ukjent",
+      name: fallbackName ?? "Fotball",
+      short: "—",
+    }
+  )
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = any
@@ -96,7 +114,7 @@ function half(competitor: Json, index: number): number | null {
   return v === undefined ? null : toNumber(v)
 }
 
-function parseSummary(event: Json): MatchSummary {
+function parseSummary(event: Json, competition: Competition): MatchSummary {
   const comp = event.competitions?.[0] ?? event
   const competitors: Json[] = comp.competitors ?? []
   const home = competitors.find((c) => c.homeAway === "home") ?? competitors[0]
@@ -128,6 +146,7 @@ function parseSummary(event: Json): MatchSummary {
 
   return {
     id: String(event.id ?? comp.id),
+    competition,
     kickoff: event.date ?? comp.date,
     status,
     statusLabel: statusLabel(status, statusObj),
@@ -146,11 +165,12 @@ function dayKey(d: Date) {
 }
 
 /**
- * Kamper fra `daysBack` dager tilbake til `daysAhead` fram. ESPN godtar bare
- * én dato per kall, så vi henter dagene parallelt.
+ * Kamper fra `daysBack` dager tilbake til `daysAhead` fram, i alle turneringer.
+ * ESPN godtar bare én dato per kall, så vi henter alle kombinasjonene parallelt.
+ * Feiler enkeltkall, vises resten; feiler alle, kastes feilen videre.
  */
 export async function listMatches(
-  daysBack = 2,
+  daysBack = 1,
   daysAhead = 21
 ): Promise<MatchSummary[]> {
   const days: string[] = []
@@ -159,16 +179,23 @@ export async function listMatches(
     days.push(dayKey(new Date(now + i * 86_400_000)))
   }
 
-  const results = await Promise.allSettled(
-    days.map((d) => getJson(`${BASE}/scoreboard?dates=${d}`, 30))
+  const calls = COMPETITIONS.flatMap((c) =>
+    days.map(async (d) => ({
+      competition: c,
+      data: await getJson(`${API}/${c.slug}/scoreboard?dates=${d}`, 30),
+    }))
   )
+  const results = await Promise.allSettled(calls)
+  if (results.every((r) => r.status === "rejected")) {
+    throw (results[0] as PromiseRejectedResult).reason
+  }
 
   const seen = new Set<string>()
   const matches: MatchSummary[] = []
   for (const r of results) {
     if (r.status !== "fulfilled") continue
-    for (const ev of r.value.events ?? []) {
-      const m = parseSummary(ev)
+    for (const ev of r.value.data.events ?? []) {
+      const m = parseSummary(ev, r.value.competition)
       if (seen.has(m.id)) continue
       seen.add(m.id)
       matches.push(m)
@@ -216,21 +243,41 @@ function parseOdds(summary: Json): MatchOdds | null {
 
 // ----------------------------------------------------------------- lagdata
 
-function parseTable(summary: Json, teamId: string): TableRow | null {
-  for (const group of summary.standings?.groups ?? []) {
-    for (const entry of group.standings?.entries ?? []) {
-      if (String(entry.id) !== teamId) continue
-      const stat = (name: string) =>
-        toNumber(entry.stats?.find((s: Json) => s.name === name)?.value)
-      return {
-        rank: stat("rank"),
-        played: stat("gamesPlayed"),
-        wins: stat("wins"),
-        draws: stat("ties"),
-        losses: stat("losses"),
-        points: stat("points"),
-        goalDiff: stat("pointDifferential"),
-      }
+function standingsEntries(summary: Json): Json[] {
+  return (summary.standings?.groups ?? []).flatMap(
+    (g: Json) => g.standings?.entries ?? []
+  )
+}
+
+/**
+ * Noen turneringer (Conference League) har tom tabell i kampsammendraget, men
+ * en komplett tabell på standings-endepunktet. Brukes som reserve.
+ */
+async function fetchStandingsEntries(slug: string): Promise<Json[]> {
+  try {
+    const j = await getJson(
+      `https://site.api.espn.com/apis/v2/sports/soccer/${slug}/standings`,
+      300
+    )
+    return (j.children ?? []).flatMap((c: Json) => c.standings?.entries ?? [])
+  } catch {
+    return []
+  }
+}
+
+function parseTable(entries: Json[], teamId: string): TableRow | null {
+  for (const entry of entries) {
+    if (String(entry.id ?? entry.team?.id) !== teamId) continue
+    const stat = (name: string) =>
+      toNumber(entry.stats?.find((s: Json) => s.name === name)?.value)
+    return {
+      rank: stat("rank"),
+      played: stat("gamesPlayed"),
+      wins: stat("wins"),
+      draws: stat("ties"),
+      losses: stat("losses"),
+      points: stat("points"),
+      goalDiff: stat("pointDifferential"),
     }
   }
   return null
@@ -314,7 +361,11 @@ function parseEvents(summary: Json, homeId: string): MatchEvent[] {
 export async function getMatch(id: string): Promise<MatchDetail | null> {
   let summary: Json
   try {
-    summary = await getJson(`${BASE}/summary?event=${encodeURIComponent(id)}`, 10)
+    // Endepunktet er turneringsuavhengig; kamp-ID-en er unik på tvers.
+    summary = await getJson(
+      `${API}/uefa.champions/summary?event=${encodeURIComponent(id)}`,
+      10
+    )
   } catch {
     return null
   }
@@ -322,24 +373,32 @@ export async function getMatch(id: string): Promise<MatchDetail | null> {
   const comp = summary.header?.competitions?.[0]
   if (!comp) return null
 
-  const base = parseSummary({
-    id: summary.header.id,
-    date: comp.date,
-    status: comp.status,
-    competitions: [comp],
-  })
+  const base = parseSummary(
+    {
+      id: summary.header.id,
+      date: comp.date,
+      status: comp.status,
+      competitions: [comp],
+    },
+    competitionFor(summary.header.league?.slug, summary.header.league?.name)
+  )
 
   const homeId = base.home.id
   const awayId = base.away.id
 
+  let entries = standingsEntries(summary)
+  if (!entries.some((e) => [homeId, awayId].includes(String(e.id ?? e.team?.id)))) {
+    entries = await fetchStandingsEntries(base.competition.slug)
+  }
+
   const homeTeam: TeamInfo = {
     ...base.home,
-    table: parseTable(summary, homeId),
+    table: parseTable(entries, homeId),
     recent: parseRecent(summary, homeId),
   }
   const awayTeam: TeamInfo = {
     ...base.away,
-    table: parseTable(summary, awayId),
+    table: parseTable(entries, awayId),
     recent: parseRecent(summary, awayId),
   }
 

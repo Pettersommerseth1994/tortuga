@@ -1,6 +1,6 @@
 # Tortuga
 
-Halvtidsbetting på Champions League. Ved pause tar du ni bet på sluttresultatet, stryker de fire minst sannsynlige og står igjen med fem. Tortuga regner ut hvilke, viser stillingen live og gir deg en sjekkliste du legger inn selv i Oddsen.
+Halvtidsbetting på Champions League, Europa League og Conference League. Ved pause tar du ni bet på sluttresultatet, stryker de fire minst sannsynlige og står igjen med fem. Tortuga regner ut hvilke, viser stillingen live og gir deg en sjekkliste du legger inn selv i Oddsen.
 
 Next.js 16 · shadcn/ui · Auth.js · Prisma/Postgres. Hele appen ligger bak innlogging.
 
@@ -66,9 +66,13 @@ Koden ligger i [`src/lib/model`](src/lib/model). Mål modelleres som uavhengige 
 
 Åpner du en ferdig kamp, kjører modellen på pausestillingen og viser om sluttresultatet var blant de beholdte. Ikke-startede kamper har en hva-om-simulering der du velger pausestillingen selv.
 
+## Norske lag
+
+Kamplisten har et eget felt, «Norske lag», med alle kamper der et norsk lag spiller, og et turneringsfilter (Alle / CL / EL / ECL). Norske lag får flagg i listene. ESPN oppgir ikke land på lag, så klubbene står i en håndført liste i [`norway.ts`](src/lib/football/norway.ts). Navn sammenlignes eksakt (ikke som delstreng), så «Mjällby» eller «Nordsjælland» ikke tas for norske. Mangler en klubb, legg den til i listen.
+
 ## Datakilde
 
-[`src/lib/football/espn.ts`](src/lib/football/espn.ts) bruker ESPNs åpne, nøkkelfrie fotball-API: terminliste, live-stilling, lagstatistikk, form, tabell og odds. Det er **uoffisielt og udokumentert**. Formatet kan endre seg, og bruksvilkårene er ikke ment for kommersiell bruk. Parseren feiler mykt (manglende felt gir tomme verdier). All ESPN-kunnskap er isolert i den ene filen mot `types.ts`, så leverandøren kan byttes til f.eks. API-Football uten å røre resten.
+[`src/lib/football/espn.ts`](src/lib/football/espn.ts) bruker ESPNs åpne, nøkkelfrie fotball-API: terminliste, live-stilling, lagstatistikk, form, tabell og odds for Champions League, Europa League og Conference League. Turneringene er listet i `COMPETITIONS`; flere kan legges til der. Det er **uoffisielt og udokumentert**. Formatet kan endre seg, og bruksvilkårene er ikke ment for kommersiell bruk. Parseren feiler mykt (manglende felt gir tomme verdier). All ESPN-kunnskap er isolert i den ene filen mot `types.ts`, så leverandøren kan byttes til f.eks. API-Football uten å røre resten.
 
 Live-banen (pågående kamp) er testet mot enhetstester og mot ferdige kamper, men ikke mot en faktisk pågående kamp i utviklingen. Kontroller at stilling, minutt og statistikk stemmer første gang du bruker den live.
 

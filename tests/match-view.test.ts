@@ -15,6 +15,7 @@ const team = (id: string, name: string): TeamInfo => ({
 
 const base: MatchDetail = {
   id: "1",
+  competition: { slug: "uefa.champions", name: "Champions League", short: "CL" },
   kickoff: "2026-11-03T20:00:00Z",
   status: "halftime",
   statusLabel: "Pause",

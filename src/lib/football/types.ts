@@ -6,6 +6,14 @@
 
 export type MatchStatus = "scheduled" | "live" | "halftime" | "finished" | "other"
 
+export type Competition = {
+  /** ESPN-slug, f.eks. "uefa.champions". */
+  slug: string
+  name: string
+  /** Kort merkelapp til lister: CL, EL, ECL. */
+  short: string
+}
+
 export type TeamLite = {
   id: string
   name: string
@@ -16,6 +24,7 @@ export type TeamLite = {
 
 export type MatchSummary = {
   id: string
+  competition: Competition
   kickoff: string
   status: MatchStatus
   /** "43'", "Pause", "Ferdig" … ferdig formatert for visning. */

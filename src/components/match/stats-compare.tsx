@@ -11,7 +11,8 @@ export function StatsCompare({
   home: string
   away: string
 }) {
-  if (stats.length === 0) {
+  // Før avspark leverer ESPN alle tallene som null — da er det ingenting å vise.
+  if (stats.length === 0 || stats.every((s) => s.home + s.away === 0)) {
     return (
       <p className="text-sm text-muted-foreground">
         Statistikk er tilgjengelig fra avspark.

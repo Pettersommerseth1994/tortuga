@@ -85,7 +85,7 @@ export function LiveMatch({
         <CardContent className="grid gap-4 px-5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
             <span>
-              {formatKickoff(match.kickoff)}
+              {match.competition.name} · {formatKickoff(match.kickoff)}
               {match.venue ? ` · ${match.venue}` : ""}
             </span>
             {isLive ? (
